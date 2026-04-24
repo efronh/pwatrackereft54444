@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <!-- Viewport for mobile optimization -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="./manifest.json">
+    <meta name="theme-color" content="#f2f2eb">
+    <!-- iOS support -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Tracker">
+    
+    <title>Personal Tracker</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Phosphor Icons for modern SVG icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    
+    <!-- CSS and JS -->
+    <link rel="stylesheet" href="./style.css?v=12">
+    <!-- Supabase SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- React + Recharts (UMD) -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/recharts@2.12.7/umd/Recharts.js"></script>
+    <script defer src="./water-progress.js?v=1"></script>
+    <script defer src="./stats-chart.js?v=1"></script>
+    <script defer src="./db.js?v=1"></script>
+    <script defer src="./app.js?v=14"></script>
+</head>
+<body>
+    <div id="app-container">
+        <!-- Header Controls -->
+        <header class="header-nav">
+            <div class="view-toggle">
+                <button id="view-today-btn" class="toggle-btn active">Today</button>
+                <button id="view-calendar-btn" class="toggle-btn">Calendar</button>
+                <button id="view-tasks-btn" class="toggle-btn">Tasks</button>
+                <button id="view-stats-btn" class="toggle-btn">Stats</button>
+            </div>
+            <button id="add-btn" class="icon-btn">
+                <i class="ph ph-plus"></i>
+            </button>
+        </header>
+
+        <!-- View: Today -->
+        <main id="view-today" class="view active-view">
+            <!-- Date Display -->
+            <section class="date-hero">
+                <div class="date-hero-left">
+                    <p id="hero-greeting" class="hero-greeting">Hello</p>
+                    <p id="hero-day-name">Tuesday</p>
+                    <h1 id="hero-date">13.12<br>DEC</h1>
+                </div>
+                <div class="date-hero-right" style="display:flex; flex-direction:column; align-items:flex-end; gap:8px;">
+                    <div class="time-block" style="text-align:right;">
+                        <p class="time-value" id="local-time" style="font-size: 1.25rem;">1:20 PM</p>
+                        <p class="time-label">Local Time</p>
+                    </div>
+                    <div class="weather-block" id="weather-block" style="display:flex; align-items:center; gap:6px; background:rgba(0,0,0,0.03); padding:4px 10px; border-radius:var(--radius-pill);">
+                        <i id="weather-icon" class="ph ph-spinner" style="font-size:1.1rem; color:var(--text-muted);"></i>
+                        <span id="weather-temp" style="font-weight:600; font-size:0.9rem;">--°C</span>
+                    </div>
+                </div>
+            </section>
+
+
+            <!-- Cards Container -->
+            <section id="tasks-container" class="cards-list">
+                <!-- Water Tracker Built-in Widget -->
+                <div class="card water-card">
+                    <div class="card-header">
+                        <h2>Hydration Goal</h2>
+                        <i class="ph ph-drop"></i>
+                    </div>
+                    <div class="water-progress-container">
+                        <div class="water-progress-bar" id="water-bar" style="width: 30%;"></div>
+                        <div class="water-text"><span id="water-current">600</span> / <span id="water-goal">2000</span> ml</div>
+                    </div>
+                    <div class="water-actions">
+                        <button class="water-add-btn" data-amount="100">+100</button>
+                        <button class="water-add-btn" data-amount="250">+250</button>
+                        <button class="water-add-btn" data-amount="500">+500</button>
+                    </div>
+                </div>
+
+                <!-- Mood Tracker Built-in Widget -->
+                <div class="card mood-card" style="background-color: #055B5C;">
+                    <div class="card-header" style="margin-bottom: 12px;">
+                        <h2 style="font-size: 1.1rem; color: #ffffff;">How are you today?</h2>
+                    </div>
+                    <div class="mood-actions" id="mood-actions" style="display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.2); padding: 8px 16px; border-radius: var(--radius-pill);">
+                        <button class="mood-btn mood-happy" data-mood="happy" title="Mutlu"></button>
+                        <button class="mood-btn mood-proud" data-mood="proud" title="Gururlu"></button>
+                        <button class="mood-btn mood-nervous" data-mood="nervous" title="Gergin"></button>
+                        <button class="mood-btn mood-tired" data-mood="tired" title="Yorgun"></button>
+                        <button class="mood-btn mood-sad" data-mood="sad" title="Üzgün"></button>
+                        <button class="mood-btn mood-angry" data-mood="angry" title="Kızgın"></button>
+                    </div>
+                </div>
+
+                <!-- DYNAMIC CARDS CONTAINER -->
+                <div id="today-dynamic-events" style="display: flex; flex-direction: column; gap: 16px;">
+                    <!-- Cards will be rendered here by JS -->
+                </div>
+            </section>
+        </main>
+
+        <!-- View: Stats -->
+        <main id="view-stats" class="view hidden-view">
+            <section class="stats-header">
+                <h1>Weekly Progress</h1>
+                <p>Hydration and mood trend for the last 7 days</p>
+            </section>
+            <section class="stats-cards">
+                <div class="card stats-kpi-card">
+                    <div class="stats-kpi-item">
+                        <span class="stats-kpi-label">Mood Avg</span>
+                        <strong id="stats-mood-avg">-- / 5</strong>
+                    </div>
+                    <div class="stats-kpi-item">
+                        <span class="stats-kpi-label">Best Day</span>
+                        <strong id="stats-best-day">--</strong>
+                    </div>
+                </div>
+                <div class="card stats-chart-card">
+                    <div class="water-chart-head">
+                        <h3>Smart Hydration</h3>
+                        <div class="water-chart-meta">
+                            <div class="water-meta-item water-meta-change">
+                                <span id="stats-water-change">+0%</span>
+                                <small>Last week</small>
+                            </div>
+                            <div class="water-meta-item">
+                                <span id="stats-water-current">0 ml</span>
+                                <small>Current</small>
+                            </div>
+                            <div class="water-meta-item">
+                                <span id="stats-water-target">2000 ml</span>
+                                <small>Target</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="stats-chart-root"></div>
+                </div>
+                <div class="card stats-footer-card" id="stats-status">
+                    Loading weekly stats...
+                </div>
+            </section>
+        </main>
+
+        <!-- View: Tasks -->
+        <main id="view-tasks" class="view hidden-view">
+            <section class="tasks-header">
+                <h1>My Checklists</h1>
+                <p>Personal tasks & regular habits</p>
+            </section>
+            
+            <section class="task-input-section" style="flex-direction: column; gap: 8px; align-items: stretch;">
+                <input type="text" id="new-task-input" placeholder="Add a task or habit..." style="width: 100%;">
+                <div style="display: flex; gap: 10px; height: 48px;">
+                    <button id="add-habit-btn" style="flex:1; background: #e5f0fa; color: #8FB1BE; border-radius: var(--radius-pill); font-weight: 500; font-size: 0.95rem;">+ Daily Habit</button>
+                    <button id="add-task-btn" style="flex:1; background: var(--card-teal); color: #000; border-radius: var(--radius-pill); font-weight: 500; font-size: 0.95rem;">+ Today's Task</button>
+                </div>
+            </section>
+
+            <section class="tasks-list-container">
+                <h3 style="margin-bottom: 10px; font-size: 1.1rem; color: var(--text-muted); padding-left: 5px;">Daily Habits</h3>
+                <div id="habits-list" style="display: flex; flex-direction: column; gap: 12px;"></div>
+
+                <h3 style="margin-top: 24px; margin-bottom: 10px; font-size: 1.1rem; color: var(--text-muted); padding-left: 5px;">Today's Tasks</h3>
+                <div id="today-tasks-list" style="display: flex; flex-direction: column; gap: 12px;"></div>
+            </section>
+        </main>
+
+        <!-- View: Calendar -->
+        <main id="view-calendar" class="view hidden-view">
+            <section class="calendar-header">
+                <button class="cal-nav" id="cal-prev"><i class="ph ph-caret-left"></i></button>
+                <h1 id="cal-month-title">DEC 2026</h1>
+                <button class="cal-nav" id="cal-next"><i class="ph ph-caret-right"></i></button>
+            </section>
+
+            <!-- Calendar Mode Toggle -->
+            <section class="cal-mode-toggle">
+                <button class="mode-btn active">Month</button>
+                <button class="mode-btn">Week</button>
+                <button class="mode-btn">Day</button>
+            </section>
+            
+            <!-- Month Grid -->
+            <section class="calendar-month-grid" id="cal-month-grid">
+                <div class="day-label">S</div><div class="day-label">M</div><div class="day-label">T</div>
+                <div class="day-label">W</div><div class="day-label">T</div><div class="day-label">F</div><div class="day-label">S</div>
+                <!-- Dynamic Calendar Cells render here -->
+            </section>
+
+            <!-- Day View Timeline (Hidden by default) -->
+            <section class="calendar-day-view hidden-view" id="cal-day-view" style="display: none;">
+                <div class="cal-day-card purple-bg" id="selected-day-card">
+                    <div class="cal-day-left">
+                        <p id="selected-day-name">Day</p>
+                        <h3 id="selected-day-num">00<br>MON</h3>
+                    </div>
+                    <div class="cal-day-right" id="selected-day-timeline">
+                        <!-- Dynamic timeline slots render here -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- Week View (Hidden by default) -->
+            <section class="calendar-week-view hidden-view" id="cal-week-view" style="display: none;">
+                <div class="cal-week-header" style="padding: 0 var(--padding-app); margin-bottom: 16px; text-align: center;">
+                    <h2 id="cal-week-title" style="font-size: 1.1rem; font-weight: 500; color: var(--text-muted); letter-spacing: 1px;"></h2>
+                </div>
+                <div class="cal-week-container" id="cal-week-container" style="padding: 0 var(--padding-app); display: flex; flex-direction: column; gap: 20px; padding-bottom: 30px;">
+                    <!-- JS will populate -->
+                </div>
+            </section>
+        </main>
+        
+        <!-- Custom Event Modal to avoid PWA prompt blocks -->
+        <div id="event-modal-overlay" class="hidden-view">
+            <div class="event-modal">
+                <h3 id="event-modal-title">Add Event</h3>
+                <input type="text" id="event-modal-input" placeholder="Event name...">
+                
+                <div class="duration-row">
+                    <label for="event-modal-duration">Duration (minutes):</label>
+                    <input type="number" id="event-modal-duration" min="15" max="1440" step="15" value="60">
+                </div>
+
+                <div class="event-modal-actions">
+                    <button id="event-modal-delete" class="delete-btn"><i class="ph ph-trash"></i></button>
+                    <button id="event-modal-cancel">Cancel</button>
+                    <button id="event-modal-save">Save</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- GLOBAL ADD MODAL -->
+        <div id="global-event-modal-overlay" class="hidden-view">
+            <div class="event-modal">
+                <h3 id="global-event-modal-title">Add New Event</h3>
+                <input type="text" id="global-event-name" placeholder="Event name...">
+                
+                <div class="duration-row">
+                    <label for="global-event-start">Start Time:</label>
+                    <input type="time" id="global-event-start" value="09:00">
+                </div>
+                
+                <div class="duration-row">
+                    <label for="global-event-end">End Time:</label>
+                    <input type="time" id="global-event-end" value="10:00">
+                </div>
+
+                <div class="event-modal-actions">
+                    <button id="global-event-cancel" class="cancel-btn">Cancel</button>
+                    <button id="global-event-save" class="save-btn">Add Event</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- NOTE MODAL -->
+        <div id="note-modal-overlay" class="hidden-view">
+            <div class="event-modal">
+                <h3 id="note-modal-title">Event Note</h3>
+                <textarea id="note-modal-input" placeholder="Type your notes here..." rows="5"></textarea>
+
+                <div class="event-modal-actions">
+                    <button id="note-modal-delete" class="delete-btn"><i class="ph ph-trash"></i></button>
+                    <button id="note-modal-cancel" class="cancel-btn">Close</button>
+                    <button id="note-modal-save" class="save-btn">Save Note</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- AUTHENTICATION MODAL -->
+        <div id="auth-modal-overlay" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.85); z-index: 10000; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(5px);">
+            <div class="event-modal" style="text-align: center;">
+                <h2 style="font-family: var(--font-heading); margin-bottom: 8px;">Welcome</h2>
+                <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 24px;">Kullanici adi ve PIN ile giris yap. Oturum acik kalir.</p>
+                
+                <input type="text" id="auth-username" placeholder="Kullanici adi" style="margin-bottom: 12px;">
+                <input type="password" id="auth-pin" placeholder="6 haneli PIN" inputmode="numeric" style="margin-bottom: 16px;">
+                
+                <div id="auth-error" style="color: #D53302; font-size: 0.85rem; margin-bottom: 16px; min-height: 16px;"></div>
+
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    <button id="auth-login-btn" style="background: var(--text-main); color: #fff; padding: 12px; border-radius: var(--radius-pill); font-weight: 500; font-size: 1rem;">Giris Yap</button>
+                    <button id="auth-register-btn" style="background: #f0f0f0; color: var(--text-main); padding: 12px; border-radius: var(--radius-pill); font-weight: 500; font-size: 1rem;">Hesap Olustur</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</body>
+</html>
