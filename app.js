@@ -329,10 +329,10 @@ let selectedDateKey = `${selectedYearVal}-${selectedMonthVal}-${selectedDayVal}`
 //let pendingEventDelete = null;
 //hata almamak için kontrol
 //if (eventModalDelete) {
-    eventModalDelete.addEventListener('click', () => {
-        if (pendingEventDelete) pendingEventDelete();
-        closeEventModal();
-    });
+   // eventModalDelete.addEventListener('click', () => {
+        //if (pendingEventDelete) pendingEventDelete();
+        //closeEventModal();
+   // });
 //}
 
 function openEventModal(title, defaultVal, defaultDur, onSave, onDelete) {
