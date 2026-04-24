@@ -325,7 +325,7 @@ let selectedMonthVal = _initDate.getMonth();
 let selectedDayVal = _initDate.getDate();
 let selectedDateKey = `${selectedYearVal}-${selectedMonthVal}-${selectedDayVal}`;
 
-//const eventModalDelete = document.getElementById('event-modal-delete');
+/*const eventModalDelete = document.getElementById('event-modal-delete');
 //let pendingEventDelete = null;
 //hata almamak için kontrol
 //if (eventModalDelete) {
@@ -333,7 +333,8 @@ let selectedDateKey = `${selectedYearVal}-${selectedMonthVal}-${selectedDayVal}`
         //if (pendingEventDelete) pendingEventDelete();
         //closeEventModal();
    // });
-//}
+}
+   */
 
 function openEventModal(title, defaultVal, defaultDur, onSave, onDelete) {
     eventModalTitle.textContent = title;
