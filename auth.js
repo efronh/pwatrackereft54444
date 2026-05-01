@@ -139,27 +139,27 @@ async function registerWithUsernamePin() {
 async function initAuthGate() {
     try {
         const localSession = getLocalSession();
-        if (localSession?.username) {
-            updateGreeting(localSession.username);
-            hideAuthModal();
-            // Fire and forget restore when already logged in
-            restoreFromCloud();
-            return;
-        }
+        let isSupabaseAuthed = false;
+
         if (window.db && window.db.checkUser) {
             try {
                 const sessionUser = await window.db.checkUser();
                 if (sessionUser) {
-                    const guessedName = localStorage.getItem('preferredUsername') || String(sessionUser.email || '').split('@')[0];
-                    updateGreeting(guessedName);
-                    hideAuthModal();
-                    await restoreFromCloud();
-                    return;
+                    isSupabaseAuthed = true;
                 }
             } catch (supaErr) {
-                console.warn('Supabase auth check failed, falling back to local.', supaErr);
+                console.warn('Supabase auth check failed', supaErr);
             }
         }
+
+        if (isSupabaseAuthed && localSession?.username) {
+            updateGreeting(localSession.username);
+            hideAuthModal();
+            restoreFromCloud();
+            return;
+        }
+
+        // Supabase session is missing or expired, force re-login!
         updateGreeting(localStorage.getItem('preferredUsername'));
         showAuthModal();
         if (authUsernameInput) {

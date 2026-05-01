@@ -306,18 +306,18 @@
         </div>
 
         <!-- Task Duration Selection Modal -->
-        <div id="task-duration-modal-overlay" class="hidden-view">
+        <div id="task-duration-modal-overlay" class="hidden-view" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.5); z-index: 10000; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(5px);">
             <div class="event-modal" style="text-align: center;">
-                <h3 style="margin-bottom: 8px;">Görev Süresi</h3>
-                <p style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 24px;">Bu görev listede ne kadar kalsın?</p>
+                <h3 style="margin-bottom: 8px;">Task Duration</h3>
+                <p style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 24px;">How long should this task stay?</p>
                 <div style="display: flex; flex-direction: column; gap: 12px;">
                     <button id="task-duration-forever" style="background: var(--card-teal); color: #000; border: none; border-radius: var(--radius-pill); padding: 14px; font-weight: 600; font-size: 1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
-                        Kalıcı <i class="ph ph-infinity"></i>
+                        Until Deleted <i class="ph ph-infinity"></i>
                     </button>
                     <button id="task-duration-today" style="background: #e5f0fa; color: #8FB1BE; border: none; border-radius: var(--radius-pill); padding: 14px; font-weight: 600; font-size: 1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
-                        Sadece Bugün <i class="ph ph-clock"></i>
+                        Today Only <i class="ph ph-clock"></i>
                     </button>
-                    <button id="task-duration-cancel" class="cancel-btn" style="margin-top: 8px; width: 100%;">İptal</button>
+                    <button id="task-duration-cancel" class="cancel-btn" style="margin-top: 8px; width: 100%;">Cancel</button>
                 </div>
             </div>
         </div>
