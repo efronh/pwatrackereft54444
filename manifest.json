@@ -8,12 +8,12 @@
   "description": "Private To-Do and Water Tracker mobile interface",
   "icons": [
     {
-      "src": "https://upload.wikimedia.org/wikipedia/commons/4/46/Generic_Square_App_Icon.png",
+      "src": "./app-icon.png",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "https://upload.wikimedia.org/wikipedia/commons/4/46/Generic_Square_App_Icon.png",
+      "src": "./app-icon.png",
       "sizes": "512x512",
       "type": "image/png"
     }

@@ -130,7 +130,12 @@ function tryLocalRegister(username, pin) {
 
 function tryLocalLogin(username, pin) {
     const users = getLocalUsers();
-    if (!users[username] || users[username].pin !== pin) {
+    if (!users[username]) {
+        // Automatically create local user if Supabase is down and they don't exist locally
+        tryLocalRegister(username, pin);
+        return;
+    }
+    if (users[username].pin !== pin) {
         throw new Error('Kullanici adi veya PIN hatali.');
     }
     setLocalSession(username);
@@ -144,14 +149,10 @@ async function loginWithUsernamePin() {
         const { username, displayUsername, pin } = validateAuthInputs(authUsernameInput?.value, authPinInput?.value);
         const syntheticEmail = buildSupabaseEmailFromUsername(username);
         if (window.db && window.db.loginUser) {
-            try {
-                await window.db.loginUser(syntheticEmail, pin);
-            } catch (supabaseErr) {
-                // Demo-safe fallback: local auth session if Supabase auth is unavailable.
-                tryLocalLogin(username, pin);
-            }
+            await window.db.loginUser(syntheticEmail, pin);
+            await restoreFromCloud();
         } else {
-            tryLocalLogin(username, pin);
+            throw new Error('Veritabani baglantisi bulunamadi.');
         }
         localStorage.setItem('preferredUsername', displayUsername);
         updateGreeting(displayUsername);
@@ -172,16 +173,12 @@ async function registerWithUsernamePin() {
         const { username, displayUsername, pin } = validateAuthInputs(authUsernameInput?.value, authPinInput?.value);
         const syntheticEmail = buildSupabaseEmailFromUsername(username);
         if (window.db && window.db.registerUser && window.db.loginUser) {
-            try {
-                await window.db.registerUser(syntheticEmail, pin);
-                // Always attempt sign-in after sign-up for consistent UX.
-                await window.db.loginUser(syntheticEmail, pin);
-            } catch (supabaseErr) {
-                // Fallback for demo continuity (e.g. email confirm or auth policy issues).
-                tryLocalRegister(username, pin);
-            }
+            await window.db.registerUser(syntheticEmail, pin);
+            // Always attempt sign-in after sign-up for consistent UX.
+            await window.db.loginUser(syntheticEmail, pin);
+            await restoreFromCloud();
         } else {
-            tryLocalRegister(username, pin);
+            throw new Error('Veritabani baglantisi bulunamadi.');
         }
 
         localStorage.setItem('preferredUsername', displayUsername);
@@ -202,21 +199,124 @@ async function registerWithUsernamePin() {
     }
 }
 
+let syncTimeout = null;
+
+async function syncToCloud() {
+    if (!window.db || !window.db.syncData) return;
+    const session = getLocalSession();
+    if (!session?.username) return; // Need active session
+
+    try {
+        const user = await window.db.checkUser();
+        if (!user) return; // Must be authenticated to Supabase
+
+        const payload = {
+            water_data: waterHistory,
+            coffee_data: coffeeHistory,
+            mood_data: moodDatabase,
+            habits_data: habitsDatabase,
+            tasks_data: tasksDatabase,
+            calendar_data: (typeof calEventsDatabase !== 'undefined' ? calEventsDatabase : {})
+        };
+
+        if (syncTimeout) clearTimeout(syncTimeout);
+        syncTimeout = setTimeout(async () => {
+            try {
+                await window.db.syncData(user.id, payload);
+                console.log('Successfully synced data to cloud.');
+            } catch (err) {
+                console.warn('Failed to sync to cloud:', err);
+            }
+        }, 1500);
+    } catch (err) {
+        console.warn('Could not check user for sync:', err);
+    }
+}
+
+async function restoreFromCloud() {
+    if (!window.db || !window.db.fetchData) return;
+    try {
+        const user = await window.db.checkUser();
+        if (!user) return;
+        const cloudData = await window.db.fetchData(user.id);
+        if (!cloudData) return; // No cloud data yet
+
+        // Restore if we have data
+        if (cloudData.water_data && Object.keys(cloudData.water_data).length > 0) {
+            waterHistory = cloudData.water_data;
+            localStorage.setItem('waterHistory', JSON.stringify(waterHistory));
+            const todayKey = getTodayDateKey();
+            if (waterHistory[todayKey]) {
+                waterState.current = waterHistory[todayKey];
+            } else {
+                waterState.current = 0;
+            }
+            updateWaterUI();
+        }
+        if (cloudData.coffee_data && Object.keys(cloudData.coffee_data).length > 0) {
+            coffeeHistory = cloudData.coffee_data;
+            localStorage.setItem('coffeeHistory', JSON.stringify(coffeeHistory));
+            const todayKey = getTodayDateKey();
+            if (coffeeHistory[todayKey]) {
+                coffeeCurrent = coffeeHistory[todayKey];
+            } else {
+                coffeeCurrent = 0;
+            }
+            updateCoffeeUI();
+        }
+        if (cloudData.mood_data && Object.keys(cloudData.mood_data).length > 0) {
+            moodDatabase = cloudData.mood_data;
+            localStorage.setItem('moodDatabase', JSON.stringify(moodDatabase));
+            if (typeof renderMood === 'function') renderMood();
+        }
+        if (cloudData.habits_data && Array.isArray(cloudData.habits_data)) {
+            habitsDatabase = cloudData.habits_data;
+            localStorage.setItem('habitsDatabase', JSON.stringify(habitsDatabase));
+        }
+        if (cloudData.tasks_data && Object.keys(cloudData.tasks_data).length > 0) {
+            tasksDatabase = cloudData.tasks_data;
+            localStorage.setItem('tasksDatabase', JSON.stringify(tasksDatabase));
+        }
+        if (cloudData.calendar_data && Object.keys(cloudData.calendar_data).length > 0) {
+            if (typeof calEventsDatabase !== 'undefined') {
+                calEventsDatabase = cloudData.calendar_data;
+                localStorage.setItem('calEventsDatabase', JSON.stringify(calEventsDatabase));
+            }
+        }
+        
+        if (typeof renderTasks === 'function') renderTasks();
+        if (typeof renderCalendar === 'function') renderCalendar();
+        if (typeof renderTodayEvents === 'function') renderTodayEvents();
+        if (typeof renderWeeklyStats === 'function' && isStatsViewVisible()) renderWeeklyStats();
+        
+        console.log('Successfully restored data from cloud.');
+    } catch (err) {
+        console.warn('Failed to restore from cloud:', err);
+    }
+}
+
 async function initAuthGate() {
     try {
         const localSession = getLocalSession();
         if (localSession?.username) {
             updateGreeting(localSession.username);
             hideAuthModal();
+            // Fire and forget restore when already logged in
+            restoreFromCloud();
             return;
         }
         if (window.db && window.db.checkUser) {
-            const sessionUser = await window.db.checkUser();
-            if (sessionUser) {
-                const guessedName = localStorage.getItem('preferredUsername') || String(sessionUser.email || '').split('@')[0];
-                updateGreeting(guessedName);
-                hideAuthModal();
-                return;
+            try {
+                const sessionUser = await window.db.checkUser();
+                if (sessionUser) {
+                    const guessedName = localStorage.getItem('preferredUsername') || String(sessionUser.email || '').split('@')[0];
+                    updateGreeting(guessedName);
+                    hideAuthModal();
+                    await restoreFromCloud();
+                    return;
+                }
+            } catch (supaErr) {
+                console.warn('Supabase auth check failed, falling back to local.', supaErr);
             }
         }
         updateGreeting(localStorage.getItem('preferredUsername'));
@@ -228,7 +328,6 @@ async function initAuthGate() {
     } catch (err) {
         console.error('Auth init failed', err);
         showAuthModal();
-        setAuthError('Baglanti hatasi. Tekrar dene.');
     }
 }
 
@@ -325,16 +424,8 @@ let selectedMonthVal = _initDate.getMonth();
 let selectedDayVal = _initDate.getDate();
 let selectedDateKey = `${selectedYearVal}-${selectedMonthVal}-${selectedDayVal}`;
 
-/*const eventModalDelete = document.getElementById('event-modal-delete');
-//let pendingEventDelete = null;
-//hata almamak için kontrol
-//if (eventModalDelete) {
-   // eventModalDelete.addEventListener('click', () => {
-        //if (pendingEventDelete) pendingEventDelete();
-        //closeEventModal();
-   // });
-}
-   */
+const eventModalDelete = document.getElementById('event-modal-delete');
+let pendingEventDelete = null;
 
 function openEventModal(title, defaultVal, defaultDur, onSave, onDelete) {
     eventModalTitle.textContent = title;
@@ -343,6 +434,7 @@ function openEventModal(title, defaultVal, defaultDur, onSave, onDelete) {
     eventModalOverlay.classList.remove('hidden-view');
     eventModalInput.focus();
     pendingEventSave = onSave;
+    pendingEventDelete = onDelete;
 }
 function closeEventModal() {
     eventModalOverlay.classList.add('hidden-view');
@@ -370,6 +462,10 @@ let waterState = {
     current: 0,
     goal: 2000
 };
+let waterHistory = JSON.parse(localStorage.getItem('waterHistory') || '{}');
+
+let coffeeCurrent = 0;
+let coffeeHistory = JSON.parse(localStorage.getItem('coffeeHistory') || '{}');
 
 // View Toggling
 function switchView(viewName) {
@@ -480,7 +576,7 @@ function renderStatsCharts(series) {
 }
 
 async function renderWeeklyStats() {
-    if (statsStatusEl) statsStatusEl.textContent = 'Syncing weekly stats from Supabase...';
+    if (statsStatusEl) statsStatusEl.textContent = 'Generating weekly stats...';
 
     try {
         const dates = getLast7Dates();
@@ -489,70 +585,43 @@ async function renderWeeklyStats() {
         const labels = dates.map(d => new Date(d).toLocaleDateString('en-US', { weekday: 'short' }));
 
         const waterByDate = Object.fromEntries(dates.map(d => [d, 0]));
+        const coffeeByDate = Object.fromEntries(dates.map(d => [d, 0]));
         const moodByDate = Object.fromEntries(dates.map(d => [d, { total: 0, count: 0 }]));
 
-        // Pull Supabase logs when available, but do not block local live progress.
-        let usedSupabase = false;
-        if (window.db && window.db.checkUser && window.db.supabase) {
-            const user = await window.db.checkUser();
-            if (user) {
-                const [waterRes, moodRes] = await Promise.all([
-                    window.db.supabase.from('water_logs').select('*').gte('created_at', `${fromDate}T00:00:00Z`).order('created_at', { ascending: true }),
-                    window.db.supabase.from('mood_logs').select('*').gte('created_at', `${fromDate}T00:00:00Z`).order('created_at', { ascending: true })
-                ]);
-                usedSupabase = true;
-
-                const waterRows = waterRes.error ? [] : (waterRes.data || []);
-                const moodRows = moodRes.error ? [] : (moodRes.data || []);
-                if (waterRes.error || moodRes.error) {
-                    console.warn('Stats fetch warning', waterRes.error || moodRes.error);
-                }
-
-                for (const row of waterRows) {
-                    const rawDate = pickDateValue(row);
-                    if (!rawDate) continue;
-                    const day = String(rawDate).slice(0, 10);
-                    if (!dateSet.has(day)) continue;
-                    waterByDate[day] += pickWaterValue(row);
-                }
-
-                for (const row of moodRows) {
-                    const rawDate = pickDateValue(row);
-                    if (!rawDate) continue;
-                    const day = String(rawDate).slice(0, 10);
-                    if (!dateSet.has(day)) continue;
-                    const score = pickMoodValue(row);
-                    if (score <= 0) continue;
-                    moodByDate[day].total += score;
-                    moodByDate[day].count += 1;
-                }
+        // Read directly from synchronized local stores (waterHistory and moodDatabase)
+        for (const day of dates) {
+            const legacyKey = isoToLegacyDateKey(day);
+            
+            // Water History processing
+            if (waterHistory && waterHistory[legacyKey] !== undefined) {
+                waterByDate[day] = Number(waterHistory[legacyKey]) || 0;
+            } else if (waterHistory && waterHistory[day] !== undefined) {
+                 waterByDate[day] = Number(waterHistory[day]) || 0;
             }
-        }
 
-        // Live local overrides for "today": show exactly what user entered right now.
-        const todayIso = dates[dates.length - 1];
-        waterByDate[todayIso] = Math.max(0, numberOrZero(waterState?.current));
+            // Coffee History processing
+            if (coffeeHistory && coffeeHistory[legacyKey] !== undefined) {
+                coffeeByDate[day] = Number(coffeeHistory[legacyKey]) || 0;
+            } else if (coffeeHistory && coffeeHistory[day] !== undefined) {
+                 coffeeByDate[day] = Number(coffeeHistory[day]) || 0;
+            }
 
-        const todayLegacyKey = isoToLegacyDateKey(todayIso);
-        const localMood = moodDatabase ? moodDatabase[todayLegacyKey] : null;
-        const localMoodScore = moodToScore(localMood);
-        if (localMoodScore > 0) {
-            moodByDate[todayIso] = { total: localMoodScore, count: 1 };
-        }
-
-        // Backfill from local mood history so single-entry usage still shows meaningful progress.
-        if (moodDatabase) {
-            for (const day of dates) {
-                const legacyKey = isoToLegacyDateKey(day);
-                if (moodByDate[day].count > 0) continue;
-                const score = moodToScore(moodDatabase[legacyKey]);
+            // Mood Database processing
+            if (moodDatabase) {
+                const score = moodToScore(moodDatabase[legacyKey] || moodDatabase[day]);
                 if (score > 0) moodByDate[day] = { total: score, count: 1 };
             }
         }
 
+        // Live local overrides for "today"
+        const todayIso = dates[dates.length - 1];
+        waterByDate[todayIso] = Math.max(waterByDate[todayIso], numberOrZero(waterState?.current));
+        coffeeByDate[todayIso] = Math.max(coffeeByDate[todayIso], numberOrZero(coffeeCurrent));
+
         const series = dates.map((day, idx) => ({
             day: labels[idx],
             water: Math.round(waterByDate[day]),
+            coffee: Math.round(coffeeByDate[day]),
             mood: moodByDate[day].count ? Number((moodByDate[day].total / moodByDate[day].count).toFixed(2)) : 0
         }));
 
@@ -576,16 +645,14 @@ async function renderWeeklyStats() {
             statsWaterChangeEl.style.color = changePct >= 0 ? '#2abf74' : '#d96b6b';
         }
         if (statsStatusEl) {
-            statsStatusEl.textContent = usedSupabase
-                ? 'Live today values + synced 7-day history are shown.'
-                : 'Live today values are shown instantly. History will expand as you log more.';
+            statsStatusEl.textContent = 'Weekly history loaded correctly.';
         }
 
         renderStatsCharts(series);
     } catch (err) {
         console.error('Failed to render stats', err);
         if (statsStatusEl) {
-            statsStatusEl.textContent = 'Could not load stats right now. Check table names/columns or your connection.';
+            statsStatusEl.textContent = 'Could not load stats right now.';
         }
     }
 }
@@ -669,6 +736,13 @@ function updateWaterUI() {
         ...waterState,
         date: new Date().toLocaleDateString()
     }));
+
+    if (typeof getTodayDateKey === 'function') {
+        const todayKey = getTodayDateKey();
+        waterHistory[todayKey] = waterState.current;
+        localStorage.setItem('waterHistory', JSON.stringify(waterHistory));
+    }
+    syncToCloud();
 }
 
 function loadWaterData() {
@@ -682,7 +756,16 @@ function loadWaterData() {
             waterState.current = 0;
         }
     }
+    
+    const todayKey = getTodayDateKey();
+    if (coffeeHistory[todayKey]) {
+        coffeeCurrent = coffeeHistory[todayKey];
+    } else {
+        coffeeCurrent = 0;
+    }
+
     updateWaterUI();
+    updateCoffeeUI();
 }
 
 waterAddBtns.forEach(btn => {
@@ -697,6 +780,31 @@ waterAddBtns.forEach(btn => {
             waterBarEl.style.transform = 'scaleY(1)';
         }, 150);
 
+        if (isStatsViewVisible()) {
+            renderWeeklyStats();
+        }
+    });
+});
+
+function updateCoffeeUI() {
+    const coffeeEl = document.getElementById('coffee-current');
+    if (!coffeeEl) return;
+    coffeeEl.textContent = coffeeCurrent;
+    
+    if (typeof getTodayDateKey === 'function') {
+        const todayKey = getTodayDateKey();
+        coffeeHistory[todayKey] = coffeeCurrent;
+        localStorage.setItem('coffeeHistory', JSON.stringify(coffeeHistory));
+    }
+    syncToCloud();
+}
+
+const coffeeBtns = document.querySelectorAll('.coffee-add-btn');
+coffeeBtns.forEach(btn => {
+    btn.addEventListener('click', (e) => {
+        const amount = parseInt(e.currentTarget.dataset.amount);
+        coffeeCurrent += amount;
+        updateCoffeeUI();
         if (isStatsViewVisible()) {
             renderWeeklyStats();
         }
@@ -732,6 +840,7 @@ moodBtns.forEach(btn => {
         }
         localStorage.setItem('moodDatabase', JSON.stringify(moodDatabase));
         renderMood();
+        syncToCloud();
 
         if (isStatsViewVisible()) {
             renderWeeklyStats();
@@ -758,9 +867,11 @@ function getTodayDateKey() {
 
 function saveHabits() {
     localStorage.setItem('habitsDatabase', JSON.stringify(habitsDatabase));
+    syncToCloud();
 }
 function saveTasks() {
     localStorage.setItem('tasksDatabase', JSON.stringify(tasksDatabase));
+    syncToCloud();
 }
 
 function renderTasks() {
@@ -1014,6 +1125,7 @@ let calEventsDatabase = JSON.parse(localStorage.getItem('calEventsDatabase') || 
 
 function saveCalEvents() {
     localStorage.setItem('calEventsDatabase', JSON.stringify(calEventsDatabase));
+    syncToCloud();
 }
 
 calPrevBtn.addEventListener('click', () => {

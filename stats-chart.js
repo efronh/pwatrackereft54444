@@ -71,28 +71,52 @@ window.StatsChart = (() => {
             tick: { fill: '#9aa3aa', fontSize: 11 }
           }),
           window.React.createElement(YAxis, {
+            yAxisId: 'left',
             axisLine: false,
             tickLine: false,
             tick: { fill: '#b2bcc4', fontSize: 10 },
             width: 42
           }),
+          window.React.createElement(YAxis, {
+            yAxisId: 'right',
+            orientation: 'right',
+            axisLine: false,
+            tickLine: false,
+            tick: { fill: '#b2bcc4', fontSize: 10 },
+            width: 20
+          }),
           window.React.createElement(ReferenceLine, {
+            yAxisId: 'left',
             y: 2000,
             stroke: '#c9d2d9',
             strokeDasharray: '4 3',
             ifOverflow: 'extendDomain',
-            label: { value: '2000 ml', position: 'right', fill: '#b3bcc4', fontSize: 10 }
+            label: { value: '2000 ml', position: 'insideTopLeft', fill: '#b3bcc4', fontSize: 10 }
           }),
           window.React.createElement(Tooltip, {
-            formatter: (value) => [`${value} ml`, 'Water'],
+            formatter: (value, name) => {
+              if (name === 'water') return [`${value} ml`, 'Water'];
+              if (name === 'coffee') return [`${value} cups`, 'Coffee'];
+              return [value, name];
+            },
             contentStyle: { borderRadius: '12px', border: 'none', boxShadow: '0 8px 22px rgba(0,0,0,0.12)' }
           }),
           window.React.createElement(Line, {
+            yAxisId: 'left',
             type: 'monotone',
             dataKey: 'water',
             stroke: '#7fd8e5',
             strokeWidth: 2.5,
             dot: { r: 2.4, fill: '#7fd8e5', strokeWidth: 0 },
+            activeDot: { r: 5 }
+          }),
+          window.React.createElement(Line, {
+            yAxisId: 'right',
+            type: 'monotone',
+            dataKey: 'coffee',
+            stroke: '#A0522D',
+            strokeWidth: 2.5,
+            dot: { r: 2.4, fill: '#A0522D', strokeWidth: 0 },
             activeDot: { r: 5 }
           })
         )

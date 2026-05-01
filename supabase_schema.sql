@@ -1,32 +1,63 @@
--- 1. Create the app_data table
-CREATE TABLE public.app_data (
-    user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-    water_data JSONB DEFAULT '{}'::jsonb,
-    mood_data JSONB DEFAULT '{}'::jsonb,
-    habits_data JSONB DEFAULT '[]'::jsonb,
-    tasks_data JSONB DEFAULT '{}'::jsonb,
-    calendar_data JSONB DEFAULT '{}'::jsonb,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+-- SUPABASE SCHEMA FOR PWA TRACKER (RELATIONAL)
+-- Run this entire script in your Supabase SQL Editor.
+
+-- 1. WATER LOGS
+CREATE TABLE public.water_logs (
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    log_date DATE NOT NULL,
+    amount_ml INTEGER NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()),
+    UNIQUE(user_id, log_date)
 );
+ALTER TABLE public.water_logs ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can manage own water logs" ON public.water_logs FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
 
--- 2. Enable Row Level Security (RLS) for security
-ALTER TABLE public.app_data ENABLE ROW LEVEL SECURITY;
+-- 2. MOOD LOGS
+CREATE TABLE public.mood_logs (
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    log_date DATE NOT NULL,
+    mood_label TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()),
+    UNIQUE(user_id, log_date)
+);
+ALTER TABLE public.mood_logs ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can manage own mood logs" ON public.mood_logs FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
 
--- 3. Create Policy: Users can only select their own data
-CREATE POLICY "Users can view own app data"
-ON public.app_data
-FOR SELECT
-USING (auth.uid() = user_id);
+-- 3. CALENDAR EVENTS
+CREATE TABLE public.calendar_events (
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    event_date DATE NOT NULL,
+    title TEXT NOT NULL,
+    duration_mins INTEGER DEFAULT 60,
+    note TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+);
+ALTER TABLE public.calendar_events ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can manage own calendar events" ON public.calendar_events FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
 
--- 4. Create Policy: Users can insert their own data
-CREATE POLICY "Users can insert own app data"
-ON public.app_data
-FOR INSERT
-WITH CHECK (auth.uid() = user_id);
+-- 4. TASKS
+CREATE TABLE public.tasks (
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    task_date DATE NOT NULL,
+    title TEXT NOT NULL,
+    is_completed BOOLEAN DEFAULT false,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+);
+ALTER TABLE public.tasks ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can manage own tasks" ON public.tasks FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
 
--- 5. Create Policy: Users can update their own data
-CREATE POLICY "Users can update own app data"
-ON public.app_data
-FOR UPDATE
-USING (auth.uid() = user_id)
-WITH CHECK (auth.uid() = user_id);
+-- 5. HABITS
+CREATE TABLE public.habits (
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    completed_dates JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()),
+    UNIQUE(user_id, title)
+);
+ALTER TABLE public.habits ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can manage own habits" ON public.habits FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);

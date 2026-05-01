@@ -11,6 +11,8 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="Tracker">
+    <link rel="icon" type="image/png" href="./app-icon.png">
+    <link rel="apple-touch-icon" href="./app-icon.png">
     
     <title>Personal Tracker</title>
     
@@ -28,11 +30,12 @@
     <!-- React + Recharts (UMD) -->
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/prop-types@15.8.1/prop-types.min.js"></script>
     <script src="https://unpkg.com/recharts@2.12.7/umd/Recharts.js"></script>
-    <script src="./water-progress.js?v=1"></script>
-    <script src="./stats-chart.js?v=1"></script>
-    <script src="./db.js?v=99"></script>
-    <script src="./app.js?v=1001"></script>
+    <script src="./water-progress.js?v=1" defer></script>
+    <script src="./stats-chart.js?v=1" defer></script>
+    <script src="./db.js?v=99" defer></script>
+    <script src="./app.js?v=1001" defer></script>
 </head>
 <body>
     <div id="app-container">
@@ -87,6 +90,20 @@
                         <button class="water-add-btn" data-amount="100">+100</button>
                         <button class="water-add-btn" data-amount="250">+250</button>
                         <button class="water-add-btn" data-amount="500">+500</button>
+                    </div>
+                </div>
+
+                <!-- Caffeine Tracker Widget -->
+                <div class="card coffee-card" style="background-color: #D2B48C;">
+                    <div class="card-header" style="color: #5D4037;">
+                        <h2>Caffeine</h2>
+                        <i class="ph ph-coffee" style="font-size: 1.2rem;"></i>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px;">
+                        <button class="coffee-add-btn" data-amount="1" style="background: rgba(255, 255, 255, 0.4); color: #5D4037; border: none; border-radius: 24px; padding: 10px 24px; font-weight: 600; font-family: inherit; font-size: 0.95rem; cursor: pointer; transition: all 0.2s ease;">+1 Cup</button>
+                        <div style="color: #5D4037; font-weight: 600; font-size: 1.1rem;">
+                            <span id="coffee-current" style="font-size: 1.8rem; font-weight: 800; margin-right: 4px;">0</span>Cups
+                        </div>
                     </div>
                 </div>
 
