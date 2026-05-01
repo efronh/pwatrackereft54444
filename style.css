@@ -608,7 +608,7 @@ button {
 .event-pill { z-index: 1; position: relative; }
 
 /* Custom Modal Styles */
-#event-modal-overlay, #global-event-modal-overlay, #note-modal-overlay {
+#event-modal-overlay, #global-event-modal-overlay, #note-modal-overlay, #city-modal-overlay {
     position: fixed;
     top: 0; left: 0; width: 100vw; height: 100vh;
     background: rgba(0,0,0,0.5);
@@ -619,7 +619,7 @@ button {
     opacity: 1;
     transition: opacity 0.2s;
 }
-#event-modal-overlay.hidden-view, #global-event-modal-overlay.hidden-view, #note-modal-overlay.hidden-view {
+#event-modal-overlay.hidden-view, #global-event-modal-overlay.hidden-view, #note-modal-overlay.hidden-view, #city-modal-overlay.hidden-view {
     display: none;
     opacity: 0;
 }

@@ -73,7 +73,7 @@
                         <p class="time-value" id="local-time" style="font-size: 1.25rem;">1:20 PM</p>
                         <p class="time-label">Local Time</p>
                     </div>
-                    <div class="weather-block" id="weather-block" style="display:flex; align-items:center; gap:6px; background:rgba(0,0,0,0.03); padding:4px 10px; border-radius:var(--radius-pill);">
+                    <div class="weather-block" id="weather-block" style="display:flex; align-items:center; gap:6px; background:rgba(0,0,0,0.03); padding:4px 10px; border-radius:var(--radius-pill); cursor:pointer; transition:background 0.2s;">
                         <i id="weather-icon" class="ph ph-spinner" style="font-size:1.1rem; color:var(--text-muted);"></i>
                         <span id="weather-temp" style="font-weight:600; font-size:0.9rem;">--°C</span>
                     </div>
@@ -188,6 +188,17 @@
             
             <section class="task-input-section" style="flex-direction: column; gap: 8px; align-items: stretch;">
                 <input type="text" id="new-task-input" placeholder="Add a task or habit..." style="width: 100%;">
+                
+                <!-- Inline Task Duration Selection -->
+                <div style="display: flex; gap: 8px; justify-content: center; margin-bottom: 2px;">
+                    <button id="duration-toggle-today" class="active" style="flex: 1; padding: 6px; border-radius: var(--radius-pill); border: 2px solid var(--card-teal); background: rgba(175,221,215,0.2); color: var(--text-main); font-size: 0.85rem; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; transition: all 0.2s;">
+                        24 Saat <i class="ph ph-clock"></i>
+                    </button>
+                    <button id="duration-toggle-forever" style="flex: 1; padding: 6px; border-radius: var(--radius-pill); border: 2px solid transparent; background: transparent; color: var(--text-muted); font-size: 0.85rem; font-weight: 500; display: flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; transition: all 0.2s;">
+                        Kalıcı <i class="ph ph-infinity"></i>
+                    </button>
+                </div>
+
                 <div style="display: flex; gap: 10px; height: 48px;">
                     <button id="add-habit-btn" style="flex:1; background: #e5f0fa; color: #8FB1BE; border-radius: var(--radius-pill); font-weight: 500; font-size: 0.95rem;">+ Daily Habit</button>
                     <button id="add-task-btn" style="flex:1; background: var(--card-teal); color: #000; border-radius: var(--radius-pill); font-weight: 500; font-size: 0.95rem;">+ Task</button>
@@ -305,19 +316,17 @@
             </div>
         </div>
 
-        <!-- Task Duration Selection Modal -->
-        <div id="task-duration-modal-overlay" class="hidden-view" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.5); z-index: 10000; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(5px);">
+        <!-- City Selection Modal -->
+        <div id="city-modal-overlay" class="hidden-view" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.5); z-index: 10000; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(5px);">
             <div class="event-modal" style="text-align: center;">
-                <h3 style="margin-bottom: 8px;">Task Duration</h3>
-                <p style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 24px;">How long should this task stay?</p>
-                <div style="display: flex; flex-direction: column; gap: 12px;">
-                    <button id="task-duration-forever" style="background: var(--card-teal); color: #000; border: none; border-radius: var(--radius-pill); padding: 14px; font-weight: 600; font-size: 1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
-                        Until Deleted <i class="ph ph-infinity"></i>
-                    </button>
-                    <button id="task-duration-today" style="background: #e5f0fa; color: #8FB1BE; border: none; border-radius: var(--radius-pill); padding: 14px; font-weight: 600; font-size: 1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
-                        Today Only <i class="ph ph-clock"></i>
-                    </button>
-                    <button id="task-duration-cancel" class="cancel-btn" style="margin-top: 8px; width: 100%;">Cancel</button>
+                <h3 style="margin-bottom: 8px;">Select City</h3>
+                <p style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 20px;">Enter your city to update the weather.</p>
+                
+                <input type="text" id="city-input" placeholder="E.g., Istanbul, London..." style="width: 100%; padding: 12px 14px; border: 1px solid rgba(0,0,0,0.1); border-radius: 12px; margin-bottom: 16px; font-family: inherit; font-size: 1rem; outline: none; text-align: center;">
+                
+                <div style="display: flex; gap: 10px; margin-top: 8px;">
+                    <button id="city-modal-cancel" class="cancel-btn" style="flex: 1; padding: 12px; border-radius: var(--radius-pill); border: none; font-weight: 600; cursor: pointer; background: #f0f0f0; color: var(--text-muted);">Cancel</button>
+                    <button id="city-modal-save" class="save-btn" style="flex: 1; padding: 12px; border-radius: var(--radius-pill); border: none; font-weight: 600; cursor: pointer; background: var(--card-teal); color: #000;">Save</button>
                 </div>
             </div>
         </div>

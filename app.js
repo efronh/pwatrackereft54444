@@ -413,40 +413,50 @@ if(addHabitBtn) {
         }
     });
 }
-const taskDurationModalOverlay = document.getElementById('task-duration-modal-overlay');
-const taskDurationForeverBtn = document.getElementById('task-duration-forever');
-const taskDurationTodayBtn = document.getElementById('task-duration-today');
-const taskDurationCancelBtn = document.getElementById('task-duration-cancel');
-let pendingTaskName = '';
+const durationToggleToday = document.getElementById('duration-toggle-today');
+const durationToggleForever = document.getElementById('duration-toggle-forever');
+let selectedDuration = '24h';
 
-function submitTask(type) {
-    const todayKey = getTodayDateKey();
-    if (!tasksDatabase[todayKey]) tasksDatabase[todayKey] = [];
-    tasksDatabase[todayKey].push({ id: Date.now(), name: pendingTaskName, completed: false, type: type });
-    taskInput.value = '';
-    saveTasks();
-    renderTasks();
-    taskDurationModalOverlay.classList.add('hidden-view');
-}
+if (durationToggleToday && durationToggleForever) {
+    function setDurationStyle(type) {
+        selectedDuration = type;
+        if (type === '24h') {
+            durationToggleToday.style.background = 'rgba(175,221,215,0.2)';
+            durationToggleToday.style.border = '2px solid var(--card-teal)';
+            durationToggleToday.style.color = 'var(--text-main)';
+            durationToggleToday.style.fontWeight = '600';
+            
+            durationToggleForever.style.background = 'transparent';
+            durationToggleForever.style.border = '2px solid transparent';
+            durationToggleForever.style.color = 'var(--text-muted)';
+            durationToggleForever.style.fontWeight = '500';
+        } else {
+            durationToggleForever.style.background = 'rgba(175,221,215,0.2)';
+            durationToggleForever.style.border = '2px solid var(--card-teal)';
+            durationToggleForever.style.color = 'var(--text-main)';
+            durationToggleForever.style.fontWeight = '600';
+            
+            durationToggleToday.style.background = 'transparent';
+            durationToggleToday.style.border = '2px solid transparent';
+            durationToggleToday.style.color = 'var(--text-muted)';
+            durationToggleToday.style.fontWeight = '500';
+        }
+    }
 
-if(taskDurationForeverBtn) {
-    taskDurationForeverBtn.addEventListener('click', () => submitTask('forever'));
-}
-if(taskDurationTodayBtn) {
-    taskDurationTodayBtn.addEventListener('click', () => submitTask('24h'));
-}
-if(taskDurationCancelBtn) {
-    taskDurationCancelBtn.addEventListener('click', () => {
-        taskDurationModalOverlay.classList.add('hidden-view');
-    });
+    durationToggleToday.addEventListener('click', () => setDurationStyle('24h'));
+    durationToggleForever.addEventListener('click', () => setDurationStyle('forever'));
 }
 
 if(addTaskBtn) {
     addTaskBtn.addEventListener('click', () => {
         const val = taskInput.value.trim();
         if(val) {
-            pendingTaskName = val;
-            taskDurationModalOverlay.classList.remove('hidden-view');
+            const todayKey = getTodayDateKey();
+            if (!tasksDatabase[todayKey]) tasksDatabase[todayKey] = [];
+            tasksDatabase[todayKey].push({ id: Date.now(), name: val, completed: false, type: selectedDuration });
+            taskInput.value = '';
+            saveTasks();
+            renderTasks();
         }
     });
 }
