@@ -413,19 +413,40 @@ if(addHabitBtn) {
         }
     });
 }
+const taskDurationModalOverlay = document.getElementById('task-duration-modal-overlay');
+const taskDurationForeverBtn = document.getElementById('task-duration-forever');
+const taskDurationTodayBtn = document.getElementById('task-duration-today');
+const taskDurationCancelBtn = document.getElementById('task-duration-cancel');
+let pendingTaskName = '';
+
+function submitTask(type) {
+    const todayKey = getTodayDateKey();
+    if (!tasksDatabase[todayKey]) tasksDatabase[todayKey] = [];
+    tasksDatabase[todayKey].push({ id: Date.now(), name: pendingTaskName, completed: false, type: type });
+    taskInput.value = '';
+    saveTasks();
+    renderTasks();
+    taskDurationModalOverlay.classList.add('hidden-view');
+}
+
+if(taskDurationForeverBtn) {
+    taskDurationForeverBtn.addEventListener('click', () => submitTask('forever'));
+}
+if(taskDurationTodayBtn) {
+    taskDurationTodayBtn.addEventListener('click', () => submitTask('24h'));
+}
+if(taskDurationCancelBtn) {
+    taskDurationCancelBtn.addEventListener('click', () => {
+        taskDurationModalOverlay.classList.add('hidden-view');
+    });
+}
+
 if(addTaskBtn) {
     addTaskBtn.addEventListener('click', () => {
         const val = taskInput.value.trim();
         if(val) {
-            const isForever = confirm("Bu görev silinene kadar kalsın mı?\n\nTamam = Silinene kadar kalır\nİptal = Sadece bugün (24 saat) kalır");
-            const taskType = isForever ? 'forever' : '24h';
-            
-            const todayKey = getTodayDateKey();
-            if (!tasksDatabase[todayKey]) tasksDatabase[todayKey] = [];
-            tasksDatabase[todayKey].push({ id: Date.now(), name: val, completed: false, type: taskType });
-            taskInput.value = '';
-            saveTasks();
-            renderTasks();
+            pendingTaskName = val;
+            taskDurationModalOverlay.classList.remove('hidden-view');
         }
     });
 }

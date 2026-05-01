@@ -190,7 +190,7 @@
                 <input type="text" id="new-task-input" placeholder="Add a task or habit..." style="width: 100%;">
                 <div style="display: flex; gap: 10px; height: 48px;">
                     <button id="add-habit-btn" style="flex:1; background: #e5f0fa; color: #8FB1BE; border-radius: var(--radius-pill); font-weight: 500; font-size: 0.95rem;">+ Daily Habit</button>
-                    <button id="add-task-btn" style="flex:1; background: var(--card-teal); color: #000; border-radius: var(--radius-pill); font-weight: 500; font-size: 0.95rem;">+ Today's Task</button>
+                    <button id="add-task-btn" style="flex:1; background: var(--card-teal); color: #000; border-radius: var(--radius-pill); font-weight: 500; font-size: 0.95rem;">+ Task</button>
                 </div>
             </section>
 
@@ -301,6 +301,23 @@
                     <button id="note-modal-delete" class="delete-btn"><i class="ph ph-trash"></i></button>
                     <button id="note-modal-cancel" class="cancel-btn">Close</button>
                     <button id="note-modal-save" class="save-btn">Save Note</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Task Duration Selection Modal -->
+        <div id="task-duration-modal-overlay" class="hidden-view">
+            <div class="event-modal" style="text-align: center;">
+                <h3 style="margin-bottom: 8px;">Görev Süresi</h3>
+                <p style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 24px;">Bu görev listede ne kadar kalsın?</p>
+                <div style="display: flex; flex-direction: column; gap: 12px;">
+                    <button id="task-duration-forever" style="background: var(--card-teal); color: #000; border: none; border-radius: var(--radius-pill); padding: 14px; font-weight: 600; font-size: 1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                        Kalıcı <i class="ph ph-infinity"></i>
+                    </button>
+                    <button id="task-duration-today" style="background: #e5f0fa; color: #8FB1BE; border: none; border-radius: var(--radius-pill); padding: 14px; font-weight: 600; font-size: 1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                        Sadece Bugün <i class="ph ph-clock"></i>
+                    </button>
+                    <button id="task-duration-cancel" class="cancel-btn" style="margin-top: 8px; width: 100%;">İptal</button>
                 </div>
             </div>
         </div>
