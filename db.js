@@ -87,8 +87,9 @@ window.db = {
                     taskInserts.push({
                         user_id: userId,
                         task_date: date,
-                        title: t.text || t.title || '',
-                        is_completed: t.completed || t.is_completed || false
+                        title: t.name || t.text || t.title || '',
+                        is_completed: t.completed || t.is_completed || false,
+                        task_type: t.type || '24h'
                     });
                 }
             }
@@ -154,8 +155,10 @@ window.db = {
             taskRes.data.forEach(row => {
                 if (!data.tasks_data[row.task_date]) data.tasks_data[row.task_date] = [];
                 data.tasks_data[row.task_date].push({
-                    text: row.title,
-                    completed: row.is_completed
+                    id: row.id,
+                    name: row.title,
+                    completed: row.is_completed,
+                    type: row.task_type || '24h'
                 });
             });
         }

@@ -48,40 +48,10 @@ function formatDisplayName(nameRaw) {
     return cleaned.charAt(0).toUpperCase() + cleaned.slice(1, 24);
 }
 
-function updateGreeting(displayNameRaw) {
-    if (!heroGreetingEl) return;
-    const display = formatDisplayName(displayNameRaw || localStorage.getItem('preferredUsername'));
-    heroGreetingEl.textContent = display ? `Hello ${display}` : 'Hello';
-}
 
-function buildSupabaseEmailFromUsername(username) {
-    return `${username}@trackerapp.dev`;
-}
 
-function validateAuthInputs(usernameRaw, pinRaw) {
-    const username = sanitizeUsername(usernameRaw);
-    const displayUsername = String(usernameRaw || '').trim();
-    const pin = String(pinRaw || '').trim();
-    if (!username || username.length < 3) {
-        throw new Error('Kullanici adi en az 3 karakter olmali.');
-    }
-    if (!/^\d{6}$/.test(pin)) {
-        throw new Error('PIN tam 6 haneli olmali.');
-    }
-    return { username, displayUsername: displayUsername || username, pin };
-}
 
-function setAuthError(message) {
-    if (authErrorEl) authErrorEl.textContent = message || '';
-}
 
-function setAuthBusy(isBusy) {
-    isAuthBusy = isBusy;
-    if (authLoginBtn) authLoginBtn.disabled = isBusy;
-    if (authRegisterBtn) authRegisterBtn.disabled = isBusy;
-    if (authUsernameInput) authUsernameInput.disabled = isBusy;
-    if (authPinInput) authPinInput.disabled = isBusy;
-}
 
 function hideAuthModal() {
     if (authModalOverlay) authModalOverlay.style.display = 'none';
@@ -91,273 +61,19 @@ function showAuthModal() {
     if (authModalOverlay) authModalOverlay.style.display = 'flex';
 }
 
-function getLocalUsers() {
-    try {
-        return JSON.parse(localStorage.getItem(LOCAL_AUTH_USERS_KEY) || '{}');
-    } catch (_) {
-        return {};
-    }
-}
 
-function saveLocalUsers(users) {
-    localStorage.setItem(LOCAL_AUTH_USERS_KEY, JSON.stringify(users));
-}
 
-function setLocalSession(username) {
-    localStorage.setItem(LOCAL_AUTH_SESSION_KEY, JSON.stringify({
-        username,
-        loggedInAt: Date.now()
-    }));
-}
 
-function getLocalSession() {
-    try {
-        return JSON.parse(localStorage.getItem(LOCAL_AUTH_SESSION_KEY) || 'null');
-    } catch (_) {
-        return null;
-    }
-}
 
-function tryLocalRegister(username, pin) {
-    const users = getLocalUsers();
-    if (users[username]) {
-        throw new Error('Bu kullanici adi zaten kayitli. Giris Yap ile devam et.');
-    }
-    users[username] = { pin };
-    saveLocalUsers(users);
-    setLocalSession(username);
-}
 
-function tryLocalLogin(username, pin) {
-    const users = getLocalUsers();
-    if (!users[username]) {
-        // Automatically create local user if Supabase is down and they don't exist locally
-        tryLocalRegister(username, pin);
-        return;
-    }
-    if (users[username].pin !== pin) {
-        throw new Error('Kullanici adi veya PIN hatali.');
-    }
-    setLocalSession(username);
-}
 
-async function loginWithUsernamePin() {
-    if (isAuthBusy) return;
-    setAuthError('');
-    setAuthBusy(true);
-    try {
-        const { username, displayUsername, pin } = validateAuthInputs(authUsernameInput?.value, authPinInput?.value);
-        const syntheticEmail = buildSupabaseEmailFromUsername(username);
-        if (window.db && window.db.loginUser) {
-            await window.db.loginUser(syntheticEmail, pin);
-            await restoreFromCloud();
-        } else {
-            throw new Error('Veritabani baglantisi bulunamadi.');
-        }
-        localStorage.setItem('preferredUsername', displayUsername);
-        updateGreeting(displayUsername);
-        hideAuthModal();
-        renderWeeklyStats();
-    } catch (err) {
-        setAuthError(err?.message || 'Giris basarisiz.');
-    } finally {
-        setAuthBusy(false);
-    }
-}
 
-async function registerWithUsernamePin() {
-    if (isAuthBusy) return;
-    setAuthError('');
-    setAuthBusy(true);
-    try {
-        const { username, displayUsername, pin } = validateAuthInputs(authUsernameInput?.value, authPinInput?.value);
-        const syntheticEmail = buildSupabaseEmailFromUsername(username);
-        if (window.db && window.db.registerUser && window.db.loginUser) {
-            await window.db.registerUser(syntheticEmail, pin);
-            // Always attempt sign-in after sign-up for consistent UX.
-            await window.db.loginUser(syntheticEmail, pin);
-            await restoreFromCloud();
-        } else {
-            throw new Error('Veritabani baglantisi bulunamadi.');
-        }
-
-        localStorage.setItem('preferredUsername', displayUsername);
-        updateGreeting(displayUsername);
-        hideAuthModal();
-        renderWeeklyStats();
-    } catch (err) {
-        const raw = err?.message || 'Kayit basarisiz.';
-        if (/already registered|already been registered|user already registered/i.test(raw)) {
-            setAuthError('Bu kullanici adi zaten kayitli. Giris Yap ile devam et.');
-        } else if (/Password should be at least 6 characters/i.test(raw)) {
-            setAuthError('PIN Supabase kurali nedeniyle 6 hane olmali.');
-        } else {
-            setAuthError(raw);
-        }
-    } finally {
-        setAuthBusy(false);
-    }
-}
 
 let syncTimeout = null;
 
-async function syncToCloud() {
-    if (!window.db || !window.db.syncData) return;
-    const session = getLocalSession();
-    if (!session?.username) return; // Need active session
 
-    try {
-        const user = await window.db.checkUser();
-        if (!user) return; // Must be authenticated to Supabase
 
-        const payload = {
-            water_data: waterHistory,
-            coffee_data: coffeeHistory,
-            mood_data: moodDatabase,
-            habits_data: habitsDatabase,
-            tasks_data: tasksDatabase,
-            calendar_data: (typeof calEventsDatabase !== 'undefined' ? calEventsDatabase : {})
-        };
 
-        if (syncTimeout) clearTimeout(syncTimeout);
-        syncTimeout = setTimeout(async () => {
-            try {
-                await window.db.syncData(user.id, payload);
-                console.log('Successfully synced data to cloud.');
-            } catch (err) {
-                console.warn('Failed to sync to cloud:', err);
-            }
-        }, 1500);
-    } catch (err) {
-        console.warn('Could not check user for sync:', err);
-    }
-}
-
-async function restoreFromCloud() {
-    if (!window.db || !window.db.fetchData) return;
-    try {
-        const user = await window.db.checkUser();
-        if (!user) return;
-        const cloudData = await window.db.fetchData(user.id);
-        if (!cloudData) return; // No cloud data yet
-
-        // Restore if we have data
-        if (cloudData.water_data && Object.keys(cloudData.water_data).length > 0) {
-            waterHistory = cloudData.water_data;
-            localStorage.setItem('waterHistory', JSON.stringify(waterHistory));
-            const todayKey = getTodayDateKey();
-            if (waterHistory[todayKey]) {
-                waterState.current = waterHistory[todayKey];
-            } else {
-                waterState.current = 0;
-            }
-            updateWaterUI();
-        }
-        if (cloudData.coffee_data && Object.keys(cloudData.coffee_data).length > 0) {
-            coffeeHistory = cloudData.coffee_data;
-            localStorage.setItem('coffeeHistory', JSON.stringify(coffeeHistory));
-            const todayKey = getTodayDateKey();
-            if (coffeeHistory[todayKey]) {
-                coffeeCurrent = coffeeHistory[todayKey];
-            } else {
-                coffeeCurrent = 0;
-            }
-            updateCoffeeUI();
-        }
-        if (cloudData.mood_data && Object.keys(cloudData.mood_data).length > 0) {
-            moodDatabase = cloudData.mood_data;
-            localStorage.setItem('moodDatabase', JSON.stringify(moodDatabase));
-            if (typeof renderMood === 'function') renderMood();
-        }
-        if (cloudData.habits_data && Array.isArray(cloudData.habits_data)) {
-            habitsDatabase = cloudData.habits_data;
-            localStorage.setItem('habitsDatabase', JSON.stringify(habitsDatabase));
-        }
-        if (cloudData.tasks_data && Object.keys(cloudData.tasks_data).length > 0) {
-            tasksDatabase = cloudData.tasks_data;
-            localStorage.setItem('tasksDatabase', JSON.stringify(tasksDatabase));
-        }
-        if (cloudData.calendar_data && Object.keys(cloudData.calendar_data).length > 0) {
-            if (typeof calEventsDatabase !== 'undefined') {
-                calEventsDatabase = cloudData.calendar_data;
-                localStorage.setItem('calEventsDatabase', JSON.stringify(calEventsDatabase));
-            }
-        }
-        
-        if (typeof renderTasks === 'function') renderTasks();
-        if (typeof renderCalendar === 'function') renderCalendar();
-        if (typeof renderTodayEvents === 'function') renderTodayEvents();
-        if (typeof renderWeeklyStats === 'function' && isStatsViewVisible()) renderWeeklyStats();
-        
-        console.log('Successfully restored data from cloud.');
-    } catch (err) {
-        console.warn('Failed to restore from cloud:', err);
-    }
-}
-
-async function initAuthGate() {
-    try {
-        const localSession = getLocalSession();
-        if (localSession?.username) {
-            updateGreeting(localSession.username);
-            hideAuthModal();
-            // Fire and forget restore when already logged in
-            restoreFromCloud();
-            return;
-        }
-        if (window.db && window.db.checkUser) {
-            try {
-                const sessionUser = await window.db.checkUser();
-                if (sessionUser) {
-                    const guessedName = localStorage.getItem('preferredUsername') || String(sessionUser.email || '').split('@')[0];
-                    updateGreeting(guessedName);
-                    hideAuthModal();
-                    await restoreFromCloud();
-                    return;
-                }
-            } catch (supaErr) {
-                console.warn('Supabase auth check failed, falling back to local.', supaErr);
-            }
-        }
-        updateGreeting(localStorage.getItem('preferredUsername'));
-        showAuthModal();
-        if (authUsernameInput) {
-            const saved = localStorage.getItem('preferredUsername');
-            if (saved) authUsernameInput.value = saved;
-        }
-    } catch (err) {
-        console.error('Auth init failed', err);
-        showAuthModal();
-    }
-}
-
-async function hardResetUserDataIfRequested() {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('reset') !== '1') return false;
-
-    try {
-        if (window.db && window.db.checkUser && window.db.supabase) {
-            const user = await window.db.checkUser();
-            if (user) {
-                const uid = user.id;
-                await Promise.allSettled([
-                    window.db.supabase.from('water_logs').delete().eq('user_id', uid),
-                    window.db.supabase.from('mood_logs').delete().eq('user_id', uid),
-                    window.db.supabase.from('app_data').delete().eq('user_id', uid)
-                ]);
-                await window.db.supabase.auth.signOut();
-            }
-        }
-    } catch (err) {
-        console.warn('Remote reset warning:', err);
-    }
-
-    localStorage.clear();
-    sessionStorage.clear();
-    window.history.replaceState({}, '', window.location.pathname);
-    window.location.reload();
-    return true;
-}
 
 let draggedHour = null;
 
@@ -408,14 +124,6 @@ if (noteModalDelete) {
     });
 }
 
-function openNoteModal(eventName, defaultNote, onSave, onDelete) {
-    noteModalTitle.textContent = `${eventName} Notes`;
-    noteModalInput.value = defaultNote || '';
-    pendingNoteSaveCallback = onSave;
-    pendingNoteDeleteCallback = onDelete;
-    noteModalOverlay.classList.remove('hidden-view');
-    noteModalInput.focus();
-}
 
 // Global Date State
 const _initDate = new Date();
@@ -427,20 +135,6 @@ let selectedDateKey = `${selectedYearVal}-${selectedMonthVal}-${selectedDayVal}`
 const eventModalDelete = document.getElementById('event-modal-delete');
 let pendingEventDelete = null;
 
-function openEventModal(title, defaultVal, defaultDur, onSave, onDelete) {
-    eventModalTitle.textContent = title;
-    eventModalInput.value = defaultVal;
-    if(eventModalDuration) eventModalDuration.value = defaultDur || 1;
-    eventModalOverlay.classList.remove('hidden-view');
-    eventModalInput.focus();
-    pendingEventSave = onSave;
-    pendingEventDelete = onDelete;
-}
-function closeEventModal() {
-    eventModalOverlay.classList.add('hidden-view');
-    pendingEventSave = null;
-    pendingEventDelete = null;
-}
 eventModalCancel.addEventListener('click', closeEventModal);
 eventModalSave.addEventListener('click', () => {
     let durVal = eventModalDuration ? parseFloat(eventModalDuration.value) : 1;
@@ -513,60 +207,16 @@ function getISODateOnly(date) {
     return localDate.toISOString().split('T')[0];
 }
 
-function getLast7Dates() {
-    const days = [];
-    const now = new Date();
-    for (let i = 6; i >= 0; i--) {
-        const d = new Date(now);
-        d.setDate(now.getDate() - i);
-        days.push(getISODateOnly(d));
-    }
-    return days;
-}
 
-function numberOrZero(value) {
-    const num = Number(value);
-    return Number.isFinite(num) ? num : 0;
-}
 
-function moodToScore(moodVal) {
-    const moodMap = {
-        happy: 5,
-        proud: 4,
-        nervous: 3,
-        tired: 2,
-        sad: 2,
-        angry: 1
-    };
-    return moodMap[String(moodVal || '').toLowerCase()] || 0;
-}
 
-function pickDateValue(row) {
-    return row.log_date || row.date || row.created_at || row.logged_at || row.inserted_at || row.timestamp || null;
-}
 
-function pickWaterValue(row) {
-    return numberOrZero(
-        row.amount_ml ?? row.water_ml ?? row.amount ?? row.value_ml ?? row.value ?? row.intake_ml
-    );
-}
 
-function pickMoodValue(row) {
-    if (row.mood_score !== undefined && row.mood_score !== null) return numberOrZero(row.mood_score);
-    if (row.score !== undefined && row.score !== null) return numberOrZero(row.score);
-    if (row.mood !== undefined && row.mood !== null) return moodToScore(row.mood);
-    if (row.mood_label !== undefined && row.mood_label !== null) return moodToScore(row.mood_label);
-    return 0;
-}
 
 function isStatsViewVisible() {
     return viewStats && viewStats.classList.contains('active-view');
 }
 
-function isoToLegacyDateKey(isoDate) {
-    const [year, month, day] = String(isoDate).split('-').map(Number);
-    return `${year}-${month - 1}-${day}`;
-}
 
 function renderStatsCharts(series) {
     if (!statsChartRootEl) return;
@@ -658,28 +308,6 @@ async function renderWeeklyStats() {
 }
 
 // Date and Time Logic
-function updateTimeAndDate() {
-    const now = new Date();
-    
-    // Time formatted: 1:20 PM
-    const timeStr = now.toLocaleTimeString('en-US', { 
-        hour: 'numeric', 
-        minute: '2-digit', 
-        hour12: true 
-    });
-    localTimeEl.textContent = timeStr;
-
-    // Day formatted: Tuesday
-    const dayStr = now.toLocaleDateString('en-US', { weekday: 'long' });
-    heroDayEl.textContent = dayStr;
-
-    // Date formatted: 13.12 <br> DEC
-    const monthStr = now.toLocaleDateString('en-US', { month: 'short' }).toUpperCase();
-    const dayNum = now.getDate().toString().padStart(2, '0');
-    const monthNum = (now.getMonth() + 1).toString().padStart(2, '0');
-
-    heroDateEl.innerHTML = `${dayNum}.${monthNum}<br>${monthStr}`;
-}
 
 // Update time every minute
 setInterval(updateTimeAndDate, 60000);
@@ -689,84 +317,11 @@ updateTimeAndDate();
 const weatherIcon = document.getElementById('weather-icon');
 const weatherTemp = document.getElementById('weather-temp');
 
-async function fetchWeather() {
-    if(!weatherIcon || !weatherTemp) return;
-    try {
-        // Istanbul coords: 41.0082, 28.9784
-        const res = await fetch('https://api.open-meteo.com/v1/forecast?latitude=41.0082&longitude=28.9784&current=temperature_2m,weather_code');
-        const data = await res.json();
-        const temp = Math.round(data.current.temperature_2m);
-        const code = data.current.weather_code;
-        
-        weatherTemp.textContent = `${temp}°C`;
-        
-        if (code === 0 || code === 1 || code === 2 || code === 3) {
-            weatherIcon.className = 'ph ph-baseball-cap'; // Hat for sunny/cloudy
-            weatherIcon.style.color = '#e6a822';
-        } else if (code >= 51 && code <= 67 || code >= 80 && code <= 82 || code >= 95 && code <= 99) {
-            weatherIcon.className = 'ph ph-umbrella'; // Umbrella for rain/storms
-            weatherIcon.style.color = '#3498db';
-        } else if (code >= 71 && code <= 77 || code >= 85 && code <= 86) {
-            weatherIcon.className = 'ph ph-boot'; // Boots for snow
-            weatherIcon.style.color = '#5c7a8b';
-        } else {
-            weatherIcon.className = 'ph ph-cloud';
-            weatherIcon.style.color = '#9e9e9e';
-        }
-    } catch(e) {
-        console.error("Weather fetch failed", e);
-        weatherIcon.className = 'ph ph-cloud-slash';
-        weatherTemp.textContent = 'Err';
-    }
-}
 fetchWeather();
 setInterval(fetchWeather, 3600000); // refresh every hour
 
 // Water Tracking Logic
-function updateWaterUI() {
-    waterCurrentEl.textContent = waterState.current;
-    if (window.WaterProgress && typeof window.WaterProgress.compute === 'function') {
-        const progress = window.WaterProgress.compute(waterState.current, waterState.goal);
-        waterBarEl.style.width = `${progress.percentage}%`;
-        waterBarEl.style.backgroundColor = progress.toneColor;
-    }
-    
-    // Save to localStorage
-    localStorage.setItem('waterData', JSON.stringify({
-        ...waterState,
-        date: new Date().toLocaleDateString()
-    }));
 
-    if (typeof getTodayDateKey === 'function') {
-        const todayKey = getTodayDateKey();
-        waterHistory[todayKey] = waterState.current;
-        localStorage.setItem('waterHistory', JSON.stringify(waterHistory));
-    }
-    syncToCloud();
-}
-
-function loadWaterData() {
-    const saved = localStorage.getItem('waterData');
-    if (saved) {
-        const data = JSON.parse(saved);
-        // Reset if it's a new day
-        if (data.date === new Date().toLocaleDateString()) {
-            waterState.current = data.current;
-        } else {
-            waterState.current = 0;
-        }
-    }
-    
-    const todayKey = getTodayDateKey();
-    if (coffeeHistory[todayKey]) {
-        coffeeCurrent = coffeeHistory[todayKey];
-    } else {
-        coffeeCurrent = 0;
-    }
-
-    updateWaterUI();
-    updateCoffeeUI();
-}
 
 waterAddBtns.forEach(btn => {
     btn.addEventListener('click', (e) => {
@@ -786,18 +341,6 @@ waterAddBtns.forEach(btn => {
     });
 });
 
-function updateCoffeeUI() {
-    const coffeeEl = document.getElementById('coffee-current');
-    if (!coffeeEl) return;
-    coffeeEl.textContent = coffeeCurrent;
-    
-    if (typeof getTodayDateKey === 'function') {
-        const todayKey = getTodayDateKey();
-        coffeeHistory[todayKey] = coffeeCurrent;
-        localStorage.setItem('coffeeHistory', JSON.stringify(coffeeHistory));
-    }
-    syncToCloud();
-}
 
 const coffeeBtns = document.querySelectorAll('.coffee-add-btn');
 coffeeBtns.forEach(btn => {
@@ -815,18 +358,6 @@ coffeeBtns.forEach(btn => {
 const moodBtns = document.querySelectorAll('.mood-btn');
 let moodDatabase = JSON.parse(localStorage.getItem('moodDatabase') || '{}');
 
-function renderMood() {
-    if (!moodBtns || moodBtns.length === 0) return;
-    const todayKey = getTodayDateKey();
-    const currentMood = moodDatabase[todayKey];
-    
-    moodBtns.forEach(btn => {
-        btn.classList.remove('active');
-        if (btn.dataset.mood === currentMood) {
-            btn.classList.add('active');
-        }
-    });
-}
 
 moodBtns.forEach(btn => {
     btn.addEventListener('click', (e) => {
@@ -860,10 +391,6 @@ const todayTasksList = document.getElementById('today-tasks-list');
 let habitsDatabase = JSON.parse(localStorage.getItem('habitsDatabase') || '[]');
 let tasksDatabase = JSON.parse(localStorage.getItem('tasksDatabase') || '{}');
 
-function getTodayDateKey() {
-    const d = new Date();
-    return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-}
 
 function saveHabits() {
     localStorage.setItem('habitsDatabase', JSON.stringify(habitsDatabase));
@@ -874,99 +401,6 @@ function saveTasks() {
     syncToCloud();
 }
 
-function renderTasks() {
-    if (!habitsList || !todayTasksList) return;
-    
-    const todayKey = getTodayDateKey();
-    
-    // Render Habits
-    habitsList.innerHTML = '';
-    habitsDatabase.forEach((habit, index) => {
-        const isCompletedToday = habit.completedDates && habit.completedDates[todayKey];
-        
-        const item = document.createElement('div');
-        item.className = `todo-item ${isCompletedToday ? 'completed' : ''}`;
-        
-        const checkbox = document.createElement('div');
-        checkbox.className = 'todo-checkbox';
-        checkbox.innerHTML = '<i class="ph ph-check"></i>';
-        checkbox.addEventListener('click', () => {
-            if (!habit.completedDates) habit.completedDates = {};
-            if (isCompletedToday) {
-                delete habit.completedDates[todayKey];
-            } else {
-                habit.completedDates[todayKey] = true;
-            }
-            saveHabits();
-            renderTasks();
-        });
-        
-        const text = document.createElement('span');
-        text.className = 'todo-item-text';
-        text.textContent = habit.name;
-        
-        const deleteBtn = document.createElement('div');
-        deleteBtn.innerHTML = '<i class="ph ph-trash"></i>';
-        deleteBtn.style.cursor = 'pointer';
-        deleteBtn.style.opacity = '0.5';
-        deleteBtn.addEventListener('click', () => {
-            habitsDatabase.splice(index, 1);
-            saveHabits();
-            renderTasks();
-        });
-        
-        item.appendChild(checkbox);
-        item.appendChild(text);
-        item.appendChild(deleteBtn);
-        habitsList.appendChild(item);
-    });
-    
-    if (habitsDatabase.length === 0) {
-        habitsList.innerHTML = '<p style="font-size:0.9rem; color:var(--text-muted);">No habits added yet.</p>';
-    }
-
-    // Render Today's Tasks
-    todayTasksList.innerHTML = '';
-    const todayTasks = tasksDatabase[todayKey] || [];
-    
-    todayTasks.forEach((task, index) => {
-        const item = document.createElement('div');
-        item.className = `todo-item ${task.completed ? 'completed' : ''}`;
-        
-        const checkbox = document.createElement('div');
-        checkbox.className = 'todo-checkbox';
-        checkbox.innerHTML = '<i class="ph ph-check"></i>';
-        checkbox.addEventListener('click', () => {
-            task.completed = !task.completed;
-            saveTasks();
-            renderTasks();
-        });
-        
-        const text = document.createElement('span');
-        text.className = 'todo-item-text';
-        text.textContent = task.name;
-        
-        const deleteBtn = document.createElement('div');
-        deleteBtn.innerHTML = '<i class="ph ph-trash"></i>';
-        deleteBtn.style.cursor = 'pointer';
-        deleteBtn.style.opacity = '0.5';
-        deleteBtn.addEventListener('click', () => {
-            todayTasks.splice(index, 1);
-            tasksDatabase[todayKey] = todayTasks;
-            saveTasks();
-            renderTasks();
-        });
-        
-        item.appendChild(checkbox);
-        item.appendChild(text);
-        item.appendChild(deleteBtn);
-        todayTasksList.appendChild(item);
-    });
-    
-    if (todayTasks.length === 0) {
-        todayTasksList.innerHTML = '<p style="font-size:0.9rem; color:var(--text-muted);">No specific tasks for today.</p>';
-    }
-}
 
 if(addHabitBtn) {
     addHabitBtn.addEventListener('click', () => {
@@ -983,9 +417,12 @@ if(addTaskBtn) {
     addTaskBtn.addEventListener('click', () => {
         const val = taskInput.value.trim();
         if(val) {
+            const isForever = confirm("Bu görev silinene kadar kalsın mı?\n\nTamam = Silinene kadar kalır\nİptal = Sadece bugün (24 saat) kalır");
+            const taskType = isForever ? 'forever' : '24h';
+            
             const todayKey = getTodayDateKey();
             if (!tasksDatabase[todayKey]) tasksDatabase[todayKey] = [];
-            tasksDatabase[todayKey].push({ id: Date.now(), name: val, completed: false });
+            tasksDatabase[todayKey].push({ id: Date.now(), name: val, completed: false, type: taskType });
             taskInput.value = '';
             saveTasks();
             renderTasks();
@@ -1015,96 +452,6 @@ function formatTimeFromFloat(f) {
     return `${displayH}${minuteStr} ${ampm}`;
 }
 
-function renderTodayEvents() {
-    if (!todayDynamicEvents) return;
-    todayDynamicEvents.innerHTML = '';
-    
-    const d = new Date();
-    const todayKey = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-    const dayEvents = calEventsDatabase[todayKey] || {};
-    
-    const eventsArr = [];
-    for (const h in dayEvents) {
-        eventsArr.push({
-            startFloat: parseFloat(h),
-            eventObj: dayEvents[h]
-        });
-    }
-    eventsArr.sort((a, b) => a.startFloat - b.startFloat);
-    
-    if (eventsArr.length === 0) {
-        todayDynamicEvents.innerHTML = `<p style="text-align:center; color:var(--text-muted); margin-top:20px; font-weight:500;">No events scheduled for today. Take a break!</p>`;
-        return;
-    }
-    
-    const bgColors = ['orange-bg', 'teal-bg', 'purple-bg', 'pink-bg', 'cyan-bg', 'pink-alt-bg', 'green-alt-bg', 'blue-alt-bg'];
-    
-    eventsArr.forEach((ev, index) => {
-        const startFloat = ev.startFloat;
-        let eObj = ev.eventObj;
-        
-        let durMins = eObj.duration;
-        if (typeof eObj === 'string') {
-            eObj = { name: eObj, duration: 60 };
-            durMins = 60;
-        } else if (durMins <= 24) {
-            durMins = durMins * 60;
-        }
-        
-        const endFloat = startFloat + (durMins / 60);
-        const startStr = formatTimeFromFloat(startFloat);
-        const endStr = formatTimeFromFloat(endFloat);
-        const colorClass = bgColors[index % bgColors.length];
-        
-        const card = document.createElement('div');
-        card.className = `card task-card ${colorClass}`;
-        card.style.cursor = 'pointer';
-        
-        let noteHtml = '';
-        if (eObj.note) {
-            noteHtml = `<p style="font-size:0.9rem; opacity:0.8; margin-top:10px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"><i class="ph ph-text-align-left"></i> ${eObj.note}</p>`;
-        } else {
-            noteHtml = `<p style="font-size:0.8rem; opacity:0.6; margin-top:10px;"><i class="ph ph-plus"></i> Tap to add notes</p>`;
-        }
-        
-        card.innerHTML = `
-            <div class="card-main">
-                <h2>${eObj.name}</h2>
-                ${noteHtml}
-            </div>
-            <div class="card-footer">
-                <div class="time-chip">
-                    <span class="t-val">${startStr}</span>
-                    <span class="t-lbl">Start</span>
-                </div>
-                <div class="duration-chip">${durMins} Min</div>
-                <div class="time-chip end-time">
-                    <span class="t-val">${endStr}</span>
-                    <span class="t-lbl">End</span>
-                </div>
-            </div>
-        `;
-        
-        card.addEventListener('click', () => {
-            openNoteModal(eObj.name, eObj.note, 
-            (newNote) => {
-                eObj.note = newNote.trim();
-                dayEvents[startFloat] = eObj;
-                calEventsDatabase[todayKey] = dayEvents;
-                saveCalEvents();
-                renderTodayEvents();
-            },
-            () => {
-                delete dayEvents[startFloat];
-                calEventsDatabase[todayKey] = dayEvents;
-                saveCalEvents();
-                renderTodayEvents();
-            });
-        });
-        
-        todayDynamicEvents.appendChild(card);
-    });
-}
 
 
 const calMonthGrid = document.getElementById('cal-month-grid');
@@ -1123,10 +470,6 @@ const calMonthTitle = document.getElementById('cal-month-title');
 let viewingDate = new Date();
 let calEventsDatabase = JSON.parse(localStorage.getItem('calEventsDatabase') || '{}');
 
-function saveCalEvents() {
-    localStorage.setItem('calEventsDatabase', JSON.stringify(calEventsDatabase));
-    syncToCloud();
-}
 
 calPrevBtn.addEventListener('click', () => {
     const isWeekMode = document.querySelector('.mode-btn:nth-child(2)').classList.contains('active');
@@ -1165,25 +508,6 @@ calNextBtn.addEventListener('click', () => {
 
 const calWeekView = document.getElementById('cal-week-view');
 
-function switchCalendarMode(mode) {
-    calModeBtns.forEach(b => b.classList.remove('active'));
-    
-    if(calMonthGrid) calMonthGrid.style.display = 'none';
-    if(calDayView) calDayView.style.display = 'none';
-    if(calWeekView) calWeekView.style.display = 'none';
-    
-    if (mode === 'Month') {
-        if(calMonthGrid) calMonthGrid.style.display = 'grid';
-        calModeBtns[0].classList.add('active'); 
-    } else if (mode === 'Week') {
-        if(calWeekView) calWeekView.style.display = 'block';
-        calModeBtns[1].classList.add('active');
-        renderWeekView();
-    } else if (mode === 'Day') {
-        if(calDayView) calDayView.style.display = 'block';
-        calModeBtns[2].classList.add('active');
-    }
-}
 
 calModeBtns.forEach(btn => {
     btn.addEventListener('click', (e) => {
@@ -1288,220 +612,7 @@ function renderWeekView() {
     }
 }
 
-function renderDayView(year, month, day) {
-    const clickedDate = new Date(year, month, day);
-    
-    // Update date text
-    selectedDayName.textContent = clickedDate.toLocaleDateString('en-US', { weekday: 'long' });
-    const monthStr = clickedDate.toLocaleDateString('en-US', { month: 'short' }).toUpperCase();
-    selectedDayNum.innerHTML = `${day.toString().padStart(2, '0')}<br>${monthStr}`;
-    
-    // Rotate background colors based on day number
-    const bgClasses = ['purple-bg', 'pink-bg', 'teal-bg', 'orange-bg', 'cyan-bg', 'pink-alt-bg', 'green-alt-bg', 'blue-alt-bg'];
-    selectedDayCard.className = `cal-day-card ${bgClasses[day % bgClasses.length]}`;
 
-    // Store global date state for Quick Add
-    selectedYearVal = year;
-    selectedMonthVal = month;
-    selectedDayVal = day;
-    selectedDateKey = `${year}-${month}-${day}`;
-
-    // Read Events from Local Database
-    const dateKey = selectedDateKey;
-    const dayEvents = calEventsDatabase[dateKey] || {};
-
-    selectedDayTimeline.innerHTML = '';
-    let scrollAnchor = null;
-    let skipUntil = -1; // Track which hours to skip if covered by an event block
-
-    // Render 48 Half-Hours (30-minute resolution)
-    for (let h = 0; h < 24; h += 0.5) {
-        const slot = document.createElement('div');
-        
-        let isHalf = h % 1 !== 0;
-        let baseH = Math.floor(h);
-        let ampm = baseH >= 12 ? 'pm' : 'am';
-        let displayH = baseH % 12 || 12;
-        let minuteStr = isHalf ? ':30' : ':00';
-
-        // Add class 'half-hour' to style the 30min labels slightly smaller if needed
-        const hourStr = `<span class="t-hour ${isHalf ? 't-half' : ''}">${displayH}${minuteStr} ${ampm}</span>`;
-        let contentStr = '';
-        
-        // Handle Legacy Data (convert string "Event" to object {name:"Event", duration:60 mins})
-        // NOTE: Legacy keys were integers (e.g., 9). They still map perfectly to baseH if it exists!
-        let eventObj = dayEvents[h];
-        if (typeof eventObj === 'string') {
-            eventObj = { name: eventObj, duration: 60 };
-        } else if (eventObj && eventObj.duration <= 24) {
-            // Legacy conversion: hour units to minutes
-            eventObj.duration = eventObj.duration * 60;
-        }
-
-        if (eventObj && h > skipUntil) {
-            slot.className = `timeline-slot slot-active`;
-            
-            // Calculate height. dur is in minutes
-            // 30 mins = 1 slot (56px total distance: 40px slot + 16px gap)
-            const dur = eventObj.duration;
-            const slotsCovered = dur / 30;
-            const pxHeight = Math.max(24, (slotsCovered * 56) - 16);
-            
-            contentStr = `<div class="event-pill dark-pill" style="height: ${pxHeight}px;" draggable="true">${eventObj.name}</div>`;
-            
-            // Block subsequent slots covered by this event
-            skipUntil = h + (dur / 60) - 0.0001;
-
-        } else if (h <= skipUntil) {
-            // Covered by previous multi-hour event block
-            slot.className = `timeline-slot`;
-            contentStr = ``; // No add button
-        } else {
-            // Empty slot available
-            slot.className = `timeline-slot`;
-            contentStr = `<div class="event-add"><i class="ph ph-plus-circle"></i></div>`;
-        }
-        
-        slot.innerHTML = hourStr + contentStr;
-        
-        // DRAG AND DROP ZONE LOGIC
-        slot.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            slot.classList.add('drag-over');
-        });
-        slot.addEventListener('dragleave', () => {
-            slot.classList.remove('drag-over');
-        });
-        slot.addEventListener('drop', (e) => {
-            e.preventDefault();
-            slot.classList.remove('drag-over');
-            if (draggedHour !== null && draggedHour !== h) {
-                // Swap events
-                const temp = dayEvents[h];
-                dayEvents[h] = dayEvents[draggedHour];
-                if (temp) {
-                    dayEvents[draggedHour] = temp;
-                } else {
-                    delete dayEvents[draggedHour];
-                }
-                calEventsDatabase[dateKey] = dayEvents;
-                saveCalEvents();
-                renderDayView(year, month, day);
-            }
-            draggedHour = null;
-        });
-
-        // PILL & CLICK LOGIC
-        const pillEl = slot.querySelector('.event-pill');
-        if (pillEl) {
-            pillEl.addEventListener('dragstart', (e) => {
-                draggedHour = h;
-                e.dataTransfer.effectAllowed = 'move';
-            });
-            pillEl.addEventListener('click', (e) => {
-                e.stopPropagation(); // prevent triggering slot click
-                openEventModal(`Edit ${displayH}${minuteStr} ${ampm}`, eventObj.name, eventObj.duration, 
-                (val, durVal) => {
-                    const eventName = val.trim();
-                    if (eventName === '') {
-                        delete dayEvents[h]; 
-                    } else {
-                        dayEvents[h] = { name: eventName, duration: durVal };
-                    }
-                    calEventsDatabase[dateKey] = dayEvents;
-                    saveCalEvents();
-                    renderDayView(year, month, day);
-                },
-                () => {
-                    delete dayEvents[h];
-                    calEventsDatabase[dateKey] = dayEvents;
-                    saveCalEvents();
-                    renderDayView(year, month, day);
-                });
-            });
-        } else if (h > skipUntil) {
-            slot.addEventListener('click', () => {
-                openEventModal(`Enter event for ${displayH}${minuteStr} ${ampm}:`, '', 30, (val, durVal) => {
-                    const eventName = val.trim();
-                    if (eventName !== '') {
-                        dayEvents[h] = { name: eventName, duration: durVal };
-                        calEventsDatabase[dateKey] = dayEvents;
-                        saveCalEvents();
-                        renderDayView(year, month, day);
-                    }
-                });
-            });
-        }
-        if (h === 6) scrollAnchor = slot;
-
-        selectedDayTimeline.appendChild(slot);
-    }
-    
-    // Auto-scroll to 6 AM (sabah 6)
-    if (scrollAnchor) {
-        setTimeout(() => {
-            selectedDayTimeline.scrollTop = scrollAnchor.offsetTop - selectedDayTimeline.offsetTop - 10;
-        }, 10);
-    }
-}
-
-function renderCalendarMonth() {
-    const year = viewingDate.getFullYear();
-    const month = viewingDate.getMonth(); // 0-indexed
-    
-    // Update header string
-    const monthNames = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
-    if (calMonthTitle) calMonthTitle.textContent = `${monthNames[month]} ${year}`;
-
-    // Calculate start day and total days
-    const firstDay = new Date(year, month, 1).getDay(); // 0 = Sunday
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    
-    // Clear old cells but keep header labels
-    const labelsStr = `
-        <div class="day-label">S</div><div class="day-label">M</div><div class="day-label">T</div>
-        <div class="day-label">W</div><div class="day-label">T</div><div class="day-label">F</div><div class="day-label">S</div>
-    `;
-    if (calMonthGrid) calMonthGrid.innerHTML = labelsStr;
-    
-    // Insert empty padding for the first week
-    for (let i = 0; i < firstDay; i++) {
-        const emptyCell = document.createElement('div');
-        emptyCell.className = 'cal-cell empty';
-        calMonthGrid.appendChild(emptyCell);
-    }
-    
-    // Insert days
-    const today = new Date();
-    for (let i = 1; i <= daysInMonth; i++) {
-        const cell = document.createElement('div');
-        cell.className = 'cal-cell';
-        
-        // Add click listener to open Day View!
-        cell.style.cursor = 'pointer';
-        cell.addEventListener('click', () => {
-            renderDayView(year, month, i);
-            switchCalendarMode('Day');
-        });
-
-        // Highlight actual real-world today
-        if (i === today.getDate() && month === today.getMonth() && year === today.getFullYear()) {
-            cell.classList.add('active-day');
-        }
-        cell.textContent = i;
-        
-        // Show dot if events exist on this date
-        const loopDateKey = `${year}-${month}-${i}`;
-        const dayEvents = calEventsDatabase[loopDateKey];
-        if (dayEvents && Object.keys(dayEvents).length > 0) {
-            const dot = document.createElement('div');
-            dot.className = 'indicator-dot';
-            cell.appendChild(dot);
-        }
-        
-        calMonthGrid.appendChild(cell);
-    }
-}
 
 // Initialize
 (async () => {

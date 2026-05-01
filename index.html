@@ -35,7 +35,14 @@
     <script src="./water-progress.js?v=1" defer></script>
     <script src="./stats-chart.js?v=1" defer></script>
     <script src="./db.js?v=99" defer></script>
-    <script src="./app.js?v=1001" defer></script>
+    <!-- Refactored Modules -->
+    <script src="./utils.js?v=1" defer></script>
+    <script src="./auth.js?v=1" defer></script>
+    <script src="./sync.js?v=1" defer></script>
+    <script src="./trackers.js?v=1" defer></script>
+    <script src="./agenda.js?v=1" defer></script>
+    <script src="./weather.js?v=1" defer></script>
+    <script src="./app.js?v=1003" defer></script>
 </head>
 <body>
     <div id="app-container">
@@ -95,9 +102,9 @@
 
                 <!-- Caffeine Tracker Widget -->
                 <div class="card coffee-card" style="background-color: #D2B48C;">
-                    <div class="card-header" style="color: #5D4037;">
+                    <div class="card-header" style="color: #5D4037; display: flex; justify-content: space-between; align-items: center;">
                         <h2>Caffeine</h2>
-                        <i class="ph ph-coffee" style="font-size: 1.2rem;"></i>
+                        <i class="ph ph-coffee" style="font-size: 1.5rem;"></i>
                     </div>
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px;">
                         <button class="coffee-add-btn" data-amount="1" style="background: rgba(255, 255, 255, 0.4); color: #5D4037; border: none; border-radius: 24px; padding: 10px 24px; font-weight: 600; font-family: inherit; font-size: 0.95rem; cursor: pointer; transition: all 0.2s ease;">+1 Cup</button>
@@ -191,7 +198,7 @@
                 <h3 style="margin-bottom: 10px; font-size: 1.1rem; color: var(--text-muted); padding-left: 5px;">Daily Habits</h3>
                 <div id="habits-list" style="display: flex; flex-direction: column; gap: 12px;"></div>
 
-                <h3 style="margin-top: 24px; margin-bottom: 10px; font-size: 1.1rem; color: var(--text-muted); padding-left: 5px;">Today's Tasks</h3>
+                <h3 style="margin-top: 24px; margin-bottom: 10px; font-size: 1.1rem; color: var(--text-muted); padding-left: 5px;">Tasks</h3>
                 <div id="today-tasks-list" style="display: flex; flex-direction: column; gap: 12px;"></div>
             </section>
         </main>

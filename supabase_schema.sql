@@ -45,6 +45,7 @@ CREATE TABLE public.tasks (
     task_date DATE NOT NULL,
     title TEXT NOT NULL,
     is_completed BOOLEAN DEFAULT false,
+    task_type TEXT DEFAULT '24h',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 ALTER TABLE public.tasks ENABLE ROW LEVEL SECURITY;
@@ -61,3 +62,15 @@ CREATE TABLE public.habits (
 );
 ALTER TABLE public.habits ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users can manage own habits" ON public.habits FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+-- 6. COFFEE LOGS
+CREATE TABLE public.coffee_logs (
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    log_date DATE NOT NULL,
+    cups INTEGER NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()),
+    UNIQUE(user_id, log_date)
+);
+ALTER TABLE public.coffee_logs ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can manage own coffee logs" ON public.coffee_logs FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
