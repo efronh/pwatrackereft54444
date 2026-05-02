@@ -103,7 +103,11 @@ async function restoreFromCloud() {
             moodDatabase = cloudData.mood_data;
             if (typeof renderMood === 'function') renderMood();
         }
-        if (cloudData.habits_data && Array.isArray(cloudData.habits_data)) {
+        if (
+            cloudData.habits_data &&
+            Array.isArray(cloudData.habits_data) &&
+            cloudData.habits_data.length > 0
+        ) {
             habitsDatabase = cloudData.habits_data;
         }
         if (cloudData.tasks_data && Object.keys(cloudData.tasks_data).length > 0) {
@@ -136,10 +140,6 @@ async function restoreFromCloud() {
         if (typeof journalRenderMiniCalendar === 'function') journalRenderMiniCalendar();
         if (typeof journalOnSwitchToTodayView === 'function') journalOnSwitchToTodayView();
         if (typeof renderWeeklyStats === 'function' && isStatsViewVisible()) renderWeeklyStats();
-
-        if (typeof isTrackerOnline === 'function' && isTrackerOnline()) {
-            clearAppDataMirrors();
-        }
 
         console.log('Successfully restored data from cloud.');
     } catch (err) {

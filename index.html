@@ -24,7 +24,7 @@
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     
     <!-- CSS and JS -->
-    <link rel="stylesheet" href="./style.css?v=15">
+    <link rel="stylesheet" href="./style.css?v=16">
     <!-- Supabase SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- React + Recharts (UMD) -->
@@ -280,22 +280,24 @@
                 <p>Personal tasks & regular habits</p>
             </section>
             
-            <section class="task-input-section tasks-section-root">
-                <h3 class="tasks-section-heading">Tasks</h3>
-                <div class="task-compose-row">
+            <section class="tasks-section-root">
+                <input type="text" id="new-task-input" class="task-top-input" placeholder="Type here..." autocomplete="off">
+
+                <button type="button" id="add-habit-btn" class="task-daily-plus-btn">Daily +</button>
+
+                <div class="task-add-task-row">
+                    <button type="button" id="add-task-btn" class="task-named-btn">task</button>
                     <div class="task-duration-toggle">
                         <button type="button" id="duration-toggle-today" class="active task-dur-btn" title="Today (24h)">⏱</button>
                         <button type="button" id="duration-toggle-forever" class="task-dur-btn" title="Ongoing">∞</button>
                     </div>
-                    <input type="text" id="new-task-input" class="task-compose-input" placeholder="Type here..." autocomplete="off">
-                    <button type="button" id="add-task-btn" class="task-compose-add">+ Task</button>
                 </div>
 
-                <div id="today-tasks-list" class="tasks-list-stack"></div>
-
-                <h3 class="tasks-section-heading tasks-section-heading-habits">Daily Habits</h3>
-                <button type="button" id="add-habit-btn" class="add-habit-wide">+ Daily Habit</button>
+                <div class="tasks-divider"><span>Daily</span></div>
                 <div id="habits-list" class="habits-list-stack"></div>
+
+                <div class="tasks-divider"><span>Tasks</span></div>
+                <div id="today-tasks-list" class="tasks-list-stack"></div>
             </section>
         </main>
 

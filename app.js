@@ -493,8 +493,7 @@ const calMonthTitle = document.getElementById('cal-month-title');
 let viewingDate = new Date();
 let calEventsDatabase = {};
 
-function hydrateOfflineFromMirrors() {
-    if (typeof isTrackerOnline === 'function' && isTrackerOnline()) return;
+function hydrateFromLocalMirrors() {
     const wh = typeof readParsedMirror === 'function' ? readParsedMirror('waterHistory') : null;
     if (wh) waterHistory = wh;
     const ch = typeof readParsedMirror === 'function' ? readParsedMirror('coffeeHistory') : null;
@@ -512,7 +511,6 @@ function hydrateOfflineFromMirrors() {
 }
 
 function snapshotTrackerMirrors() {
-    if (typeof isTrackerOnline === 'function' && isTrackerOnline()) return;
     persistMirror('waterHistory', waterHistory);
     persistMirror('coffeeHistory', coffeeHistory);
     persistMirror('moodDatabase', moodDatabase);
@@ -680,7 +678,7 @@ function renderWeekView() {
     const didReset = await hardResetUserDataIfRequested();
     if (didReset) return;
 
-    hydrateOfflineFromMirrors();
+    hydrateFromLocalMirrors();
 
     try {
         const legacyRaw = localStorage.getItem('customTasks');

@@ -1,7 +1,6 @@
 /**
- * Çevrimdışı dışında tracker verisini tarayıcıda tutmaz.
- * navigator.onLine === false iken aynalar; çevrimiçi + buluttan restore sonrası temizlenir.
- * (Supabase Auth oturumu SDK tarafında ayrı tutulur — bu normaldir.)
+ * Yerel yedek: sync gecikse veya yenileme olunca veri kaybolmasın diye her güncellemede yazılır.
+ * Bulut hâlâ ana kaynak; giriş sonrası restore ile birleşir.
  */
 
 const TRACKER_MIRROR_KEYS = [
@@ -21,11 +20,10 @@ function isTrackerOnline() {
 }
 
 function persistMirror(key, value) {
-    if (isTrackerOnline()) return;
     try {
         localStorage.setItem(key, typeof value === 'string' ? value : JSON.stringify(value));
     } catch (e) {
-        console.warn('Offline mirror write failed', key, e);
+        console.warn('Local backup write failed', key, e);
     }
 }
 
