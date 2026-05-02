@@ -24,7 +24,7 @@
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     
     <!-- CSS and JS -->
-    <link rel="stylesheet" href="./style.css?v=14">
+    <link rel="stylesheet" href="./style.css?v=15">
     <!-- Supabase SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- React + Recharts (UMD) -->
@@ -41,10 +41,10 @@
     <script src="./cloud-mirror.js?v=1" defer></script>
     <script src="./sync.js?v=2" defer></script>
     <script src="./trackers.js?v=3" defer></script>
-    <script src="./agenda.js?v=2" defer></script>
+    <script src="./agenda.js?v=3" defer></script>
     <script src="./weather.js?v=3" defer></script>
-    <script src="./journal.js?v=3" defer></script>
-    <script src="./app.js?v=1007" defer></script>
+    <script src="./journal.js?v=4" defer></script>
+    <script src="./app.js?v=1008" defer></script>
 </head>
 <body>
     <div id="app-container">
@@ -54,8 +54,8 @@
                 <button id="view-today-btn" class="toggle-btn active">Today</button>
                 <button id="view-calendar-btn" class="toggle-btn">Calendar</button>
                 <button id="view-tasks-btn" class="toggle-btn">Tasks</button>
-                <button id="view-stats-btn" class="toggle-btn">Stats</button>
                 <button id="view-journal-btn" class="toggle-btn">Journal</button>
+                <button id="view-stats-btn" class="toggle-btn">Stats</button>
             </div>
             <button id="add-btn" class="icon-btn">
                 <i class="ph ph-plus"></i>
@@ -194,7 +194,7 @@
         </main>
 
         <!-- View: Journal -->
-        <main id="view-journal" class="view hidden-view">
+        <main id="view-journal" class="view hidden-view journal-view-root">
             <section class="journal-view-header">
                 <h1>Daily journal</h1>
                 <p>Reflection &mdash; one entry per day</p>
@@ -212,28 +212,27 @@
 
             <section class="card journal-editor-card">
                 <div class="journal-field">
-                    <span class="journal-field-label">Day rating</span>
-                    <div class="journal-rating-row">
-                        <button type="button" class="journal-rating-btn" data-value="1" title="1">😫</button>
-                        <button type="button" class="journal-rating-btn" data-value="2" title="2">😕</button>
-                        <button type="button" class="journal-rating-btn" data-value="3" title="3">😐</button>
-                        <button type="button" class="journal-rating-btn" data-value="4" title="4">🙂</button>
-                        <button type="button" class="journal-rating-btn" data-value="5" title="5">😄</button>
+                    <span class="journal-field-label">Day rating <span class="journal-rating-scale">(1–5)</span></span>
+                    <div class="journal-rating-row journal-rating-numeric">
+                        <button type="button" class="journal-rating-btn" data-value="1" title="1">1</button>
+                        <button type="button" class="journal-rating-btn" data-value="2" title="2">2</button>
+                        <button type="button" class="journal-rating-btn" data-value="3" title="3">3</button>
+                        <button type="button" class="journal-rating-btn" data-value="4" title="4">4</button>
+                        <button type="button" class="journal-rating-btn" data-value="5" title="5">5</button>
                     </div>
                 </div>
 
-                <div class="journal-field">
-                    <label class="journal-field-label" for="journal-tags-input">Tags</label>
-                    <input type="text" id="journal-tags-input" class="journal-input" placeholder="#stressful #productive #social" autocomplete="off">
-                </div>
-
-                <div class="journal-field">
-                    <label class="journal-field-label" for="journal-body">Today&apos;s note</label>
+                <div class="journal-field journal-note-field">
+                    <div class="journal-note-head-row">
+                        <label class="journal-field-label journal-note-label" for="journal-body">Today&apos;s note</label>
+                        <button type="button" class="journal-prompts-inline" id="journal-prompts-toggle" aria-expanded="false">
+                            Guided prompts <span class="journal-optional">(optional)</span>
+                        </button>
+                    </div>
                     <textarea id="journal-body" class="journal-body-textarea" rows="5" placeholder="Free writing — whatever's on your mind."></textarea>
                 </div>
 
-                <details class="journal-prompts-details">
-                    <summary>Guided prompts <span class="journal-optional">(optional)</span></summary>
+                <div id="journal-prompts-panel" class="journal-prompts-panel" hidden>
                     <div class="journal-prompt-block">
                         <span class="journal-prompt-emoji">🌅</span>
                         <label for="journal-intention">What&apos;s your intention for today?</label>
@@ -251,7 +250,7 @@
                     </div>
                     <div class="journal-prompt-block">
                         <span class="journal-prompt-emoji">🙏</span>
-                        <span class="journal-field-label">3 things you&apos;re grateful for</span>
+                        <span class="journal-field-label journal-prompt-inline-label">3 things you&apos;re grateful for</span>
                         <input type="text" id="journal-gratitude-0" class="journal-input" placeholder="1.">
                         <input type="text" id="journal-gratitude-1" class="journal-input" placeholder="2.">
                         <input type="text" id="journal-gratitude-2" class="journal-input" placeholder="3.">
@@ -261,20 +260,12 @@
                         <label for="journal-differently">What would you do differently?</label>
                         <input type="text" id="journal-differently" class="journal-input" placeholder="Reflection…">
                     </div>
-                </details>
+                </div>
 
                 <div class="journal-insights">
-                    <div class="journal-insight-block">
+                    <div class="journal-insight-block journal-insight-only">
                         <span class="journal-insight-title">Today&apos;s snapshot</span>
                         <p id="journal-auto-summary" class="journal-insight-text"></p>
-                    </div>
-                    <div class="journal-insight-block">
-                        <span class="journal-insight-title">Tasks</span>
-                        <p id="journal-task-snapshot" class="journal-insight-text"></p>
-                    </div>
-                    <div class="journal-insight-block">
-                        <span class="journal-insight-title">Mood vs journal</span>
-                        <p id="journal-correlation" class="journal-insight-text"></p>
                     </div>
                 </div>
 
@@ -289,26 +280,22 @@
                 <p>Personal tasks & regular habits</p>
             </section>
             
-            <section class="task-input-section" style="flex-direction: column; gap: 10px; align-items: stretch;">
-                <button id="add-habit-btn" style="width: 100%; height: 48px; background: #e5f0fa; color: #8FB1BE; border: none; border-radius: var(--radius-pill); font-weight: 600; font-size: 0.95rem; cursor: pointer;">+ Daily Habit</button>
-
-                <h3 style="margin-bottom: 6px; font-size: 1.1rem; color: var(--text-muted); padding-left: 5px;">Daily Habits</h3>
-                <div id="habits-list" style="display: flex; flex-direction: column; gap: 12px;"></div>
-
-                <h3 style="margin-top: 12px; margin-bottom: 6px; font-size: 1.1rem; color: var(--text-muted); padding-left: 5px;">Tasks</h3>
-                <input type="text" id="new-task-input" placeholder="Type here..." style="width: 100%;">
-
-                <div style="display: flex; gap: 8px; align-items: center; min-height: 44px;">
-                    <div style="display: flex; gap: 2px; background: rgba(0,0,0,0.03); padding: 3px 4px; border-radius: var(--radius-pill); flex-shrink: 0;">
-                        <button type="button" id="duration-toggle-today" class="active" style="width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--card-teal); background: rgba(175,221,215,0.2); font-size: 1rem; line-height: 1; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s;" title="Bugün (24 saat)">⏱</button>
-                        <button type="button" id="duration-toggle-forever" style="width: 34px; height: 34px; border-radius: 50%; border: 2px solid transparent; background: transparent; color: var(--text-muted); font-size: 1rem; line-height: 1; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s;" title="Kalıcı">∞</button>
+            <section class="task-input-section tasks-section-root">
+                <h3 class="tasks-section-heading">Tasks</h3>
+                <div class="task-compose-row">
+                    <div class="task-duration-toggle">
+                        <button type="button" id="duration-toggle-today" class="active task-dur-btn" title="Today (24h)">⏱</button>
+                        <button type="button" id="duration-toggle-forever" class="task-dur-btn" title="Ongoing">∞</button>
                     </div>
-                    <button type="button" id="add-task-btn" style="flex:1; min-height: 44px; background: var(--card-teal); color: #000; border: none; border-radius: var(--radius-pill); font-weight: 600; font-size: 0.95rem; cursor: pointer;">+ Task</button>
+                    <input type="text" id="new-task-input" class="task-compose-input" placeholder="Type here..." autocomplete="off">
+                    <button type="button" id="add-task-btn" class="task-compose-add">+ Task</button>
                 </div>
-            </section>
 
-            <section class="tasks-list-container" style="margin-top: 8px;">
-                <div id="today-tasks-list" style="display: flex; flex-direction: column; gap: 12px;"></div>
+                <div id="today-tasks-list" class="tasks-list-stack"></div>
+
+                <h3 class="tasks-section-heading tasks-section-heading-habits">Daily Habits</h3>
+                <button type="button" id="add-habit-btn" class="add-habit-wide">+ Daily Habit</button>
+                <div id="habits-list" class="habits-list-stack"></div>
             </section>
         </main>
 

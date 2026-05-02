@@ -408,10 +408,12 @@ function renderCalendarMonth() {
         }
         cell.textContent = i;
         
-        // Show dot if events exist on this date
         const loopDateKey = `${year}-${month}-${i}`;
         const dayEvents = calEventsDatabase[loopDateKey];
-        if (dayEvents && Object.keys(dayEvents).length > 0) {
+        const hasEvents = dayEvents && Object.keys(dayEvents).length > 0;
+        const hasJournal =
+            typeof journalDayHasEntry === 'function' && journalDayHasEntry(loopDateKey);
+        if (hasEvents || hasJournal) {
             const dot = document.createElement('div');
             dot.className = 'indicator-dot';
             cell.appendChild(dot);

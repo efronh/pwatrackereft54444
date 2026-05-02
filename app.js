@@ -193,6 +193,7 @@ function switchView(viewName) {
         viewCalendarBtn.classList.add('active');
         viewCalendar.classList.add('active-view');
         viewCalendar.classList.remove('hidden-view');
+        if (typeof renderCalendarMonth === 'function') renderCalendarMonth();
         if(addBtn) addBtn.style.display = 'flex';
     } else if (viewName === 'tasks') {
         viewTasksBtn.classList.add('active');
@@ -435,30 +436,17 @@ if (durationToggleToday && durationToggleForever) {
     function setDurationStyle(type) {
         selectedDuration = type;
         if (type === '24h') {
-            durationToggleToday.style.background = 'rgba(175,221,215,0.2)';
-            durationToggleToday.style.border = '2px solid var(--card-teal)';
-            durationToggleToday.style.color = 'var(--text-main)';
-            durationToggleToday.style.fontWeight = '600';
-            
-            durationToggleForever.style.background = 'transparent';
-            durationToggleForever.style.border = '2px solid transparent';
-            durationToggleForever.style.color = 'var(--text-muted)';
-            durationToggleForever.style.fontWeight = '500';
+            durationToggleToday.classList.add('active');
+            durationToggleForever.classList.remove('active');
         } else {
-            durationToggleForever.style.background = 'rgba(175,221,215,0.2)';
-            durationToggleForever.style.border = '2px solid var(--card-teal)';
-            durationToggleForever.style.color = 'var(--text-main)';
-            durationToggleForever.style.fontWeight = '600';
-            
-            durationToggleToday.style.background = 'transparent';
-            durationToggleToday.style.border = '2px solid transparent';
-            durationToggleToday.style.color = 'var(--text-muted)';
-            durationToggleToday.style.fontWeight = '500';
+            durationToggleForever.classList.add('active');
+            durationToggleToday.classList.remove('active');
         }
     }
 
     durationToggleToday.addEventListener('click', () => setDurationStyle('24h'));
     durationToggleForever.addEventListener('click', () => setDurationStyle('forever'));
+    setDurationStyle('24h');
 }
 
 if(addTaskBtn) {

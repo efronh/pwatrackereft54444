@@ -229,6 +229,16 @@ function initJournalUI() {
         });
     });
 
+    const promptsToggle = document.getElementById('journal-prompts-toggle');
+    const promptsPanel = document.getElementById('journal-prompts-panel');
+    if (promptsToggle && promptsPanel) {
+        promptsToggle.addEventListener('click', () => {
+            const show = promptsPanel.hidden;
+            promptsPanel.hidden = !show;
+            promptsToggle.setAttribute('aria-expanded', show ? 'true' : 'false');
+        });
+    }
+
     journalHydrateForm(journalSelectedDateKey);
     journalRenderMiniCalendar();
 }
@@ -254,9 +264,6 @@ function journalHydrateForm(dateKey) {
 
     const body = document.getElementById('journal-body');
     if (body) body.value = e.body || '';
-
-    const tags = document.getElementById('journal-tags-input');
-    if (tags) tags.value = journalFormatTagsDisplay(e.tags);
 
     document.querySelectorAll('.journal-rating-btn').forEach((btn) => {
         const v = parseInt(btn.getAttribute('data-value'), 10);
@@ -288,7 +295,6 @@ function journalPersistFromForm() {
     const rating = selectedBtn ? parseInt(selectedBtn.getAttribute('data-value'), 10) : null;
 
     const bodyEl = document.getElementById('journal-body');
-    const tagsEl = document.getElementById('journal-tags-input');
     const intention = document.getElementById('journal-intention');
     const eveningWell = document.getElementById('journal-evening-well');
     const eveningDrain = document.getElementById('journal-evening-drain');
@@ -300,7 +306,7 @@ function journalPersistFromForm() {
     journalSaveEntry(dateKey, {
         body: bodyEl ? bodyEl.value.trim() : '',
         rating: Number.isFinite(rating) ? rating : null,
-        tags: tagsEl ? journalParseTagsInput(tagsEl.value) : [],
+        tags: [],
         intention: intention ? intention.value.trim() : '',
         eveningWell: eveningWell ? eveningWell.value.trim() : '',
         eveningDrain: eveningDrain ? eveningDrain.value.trim() : '',
@@ -310,16 +316,30 @@ function journalPersistFromForm() {
 
     journalRenderMiniCalendar();
     journalRefreshInsights(dateKey);
+    if (typeof renderCalendarMonth === 'function') renderCalendarMonth();
 }
 
 function journalRefreshInsights(dateKey) {
     const sumEl = document.getElementById('journal-auto-summary');
-    const taskEl = document.getElementById('journal-task-snapshot');
-    const corrEl = document.getElementById('journal-correlation');
     if (sumEl) sumEl.textContent = journalBuildAutoSummary(dateKey);
-    if (taskEl) taskEl.textContent = journalTaskSnapshotForDay(dateKey);
-    if (corrEl) corrEl.textContent = journalCorrelationText(dateKey);
 }
+
+function journalDayHasEntry(dateKey) {
+    const je = journalDatabase[dateKey];
+    return !!(
+        je &&
+        (je.body ||
+            je.rating ||
+            (je.tags && je.tags.length) ||
+            je.intention ||
+            je.eveningWell ||
+            je.eveningDrain ||
+            je.differently ||
+            (je.gratitude && je.gratitude.some((x) => String(x || '').trim())))
+    );
+}
+
+window.journalDayHasEntry = journalDayHasEntry;
 
 function journalRenderMiniCalendar() {
     const grid = document.getElementById('journal-mini-cal');
