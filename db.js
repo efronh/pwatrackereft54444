@@ -186,8 +186,10 @@ window.db = {
             }
             // Boş gönderimde silme yapma — buluttaki görevleri yanlışlıkla sıfırlama
             if (taskInserts.length > 0) {
-                await _supabase.from('tasks').delete().eq('user_id', userId);
-                await _supabase.from('tasks').insert(taskInserts);
+                const { error: tDelErr } = await _supabase.from('tasks').delete().eq('user_id', userId);
+                if (tDelErr) console.warn('tasks delete:', tDelErr.message);
+                const { error: tInsErr } = await _supabase.from('tasks').insert(taskInserts);
+                if (tInsErr) console.warn('tasks insert:', tInsErr.message);
             }
         }
 
