@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tracker-pwa-v41';
+const CACHE_NAME = 'tracker-pwa-v42';
 
 const APP_SHELL = [
   './',

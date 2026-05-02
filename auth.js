@@ -16,7 +16,9 @@ function validateAuthInputs(usernameRaw, pinRaw) {
     const displayUsername = String(usernameRaw || '').trim();
     const pin = String(pinRaw || '').trim();
     if (!username || username.length < 3) {
-        throw new Error('Kullanici adi en az 3 karakter olmali.');
+        throw new Error(
+            'Kullanici adi en az 3 karakter olmali (yalnizca a-z, 0-9, . _ -). Turkce harf kullanirsan temizleme sonrasi ad cok kisa kalabilir.'
+        );
     }
     if (!/^\d{6}$/.test(pin)) {
         throw new Error('PIN tam 6 haneli olmali.');
@@ -157,8 +159,21 @@ async function registerWithUsernamePin() {
         const { username, displayUsername, pin } = validateAuthInputs(authUsernameInput?.value, authPinInput?.value);
         const syntheticEmail = buildSupabaseEmailFromUsername(username);
         if (window.db && window.db.registerUser && window.db.loginUser) {
-            await window.db.registerUser(syntheticEmail, pin);
-            await window.db.loginUser(syntheticEmail, pin);
+            const signupData = await window.db.registerUser(syntheticEmail, pin);
+            const hasSessionAfterSignup = !!signupData?.session;
+            if (!hasSessionAfterSignup) {
+                try {
+                    await window.db.loginUser(syntheticEmail, pin);
+                } catch (loginErr) {
+                    const lm = String(loginErr?.message || '').toLowerCase();
+                    if (/email.*confirm|confirm.*email|not confirmed|verify|confirmation/i.test(lm)) {
+                        throw new Error(
+                            'Kayit Supabase tarafinda onay bekliyor olabilir. Proje sahibi: Supabase Dashboard → Authentication → Providers → Email → "Confirm email" kapali olsun (PIN ile sahte @ adres kullaniyoruz). Alternatif: gelen kutuda onay linkine tikla.'
+                        );
+                    }
+                    throw loginErr;
+                }
+            }
             setLocalSession(username);
             const sessionUser = await window.db.checkUser();
             if (sessionUser?.id) {
@@ -197,6 +212,10 @@ async function registerWithUsernamePin() {
             setAuthError('Bu kullanici adi zaten kayitli. Giris Yap ile devam et.');
         } else if (/Password should be at least 6 characters/i.test(raw)) {
             setAuthError('PIN Supabase kurali nedeniyle 6 hane olmali.');
+        } else if (/rate limit|too many requests|over_email_send_rate_limit/i.test(lower)) {
+            setAuthError('Cok fazla deneme yapildi. Bir sure sonra tekrar dene.');
+        } else if (/signup.*disabled|signups not allowed|not authorized/i.test(lower)) {
+            setAuthError('Yeni kayitlar Supabase tarafinda kapali olabilir. Proje ayarlarini kontrol et.');
         } else {
             setAuthError(raw);
         }

@@ -103,14 +103,14 @@ window.db = {
         return data.user;
     },
     
-    // Kayıt olma fonksiyonu
+    // Kayıt olma fonksiyonu — data.session: e-posta onayi kapaliysa dolu gelir
     registerUser: async function(email, password) {
         const { data, error } = await _supabase.auth.signUp({
             email: email,
             password: password
         });
         if (error) throw error;
-        return data.user;
+        return data;
     },
     
     // Verileri bulutla eşitle (upsert to relational tables)
