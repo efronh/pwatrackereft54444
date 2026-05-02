@@ -1,3 +1,47 @@
+function mergeHabitsLists(localArr, cloudArr) {
+    const byName = new Map();
+    for (const h of localArr || []) {
+        if (!h || !h.name) continue;
+        byName.set(h.name, {
+            ...h,
+            completedDates: { ...(h.completedDates || {}) }
+        });
+    }
+    for (const h of cloudArr || []) {
+        if (!h || !h.name) continue;
+        const ex = byName.get(h.name);
+        if (!ex) {
+            byName.set(h.name, {
+                id: h.id || Date.now() + Math.random(),
+                name: h.name,
+                completedDates: { ...(h.completedDates || {}) }
+            });
+        } else {
+            ex.completedDates = { ...(ex.completedDates || {}), ...(h.completedDates || {}) };
+        }
+    }
+    return Array.from(byName.values());
+}
+
+function mergeTasksByDate(localObj, cloudObj) {
+    const dates = new Set([...Object.keys(localObj || {}), ...Object.keys(cloudObj || {})]);
+    const out = {};
+    for (const date of dates) {
+        const L = localObj[date] || [];
+        const C = cloudObj[date] || [];
+        const keyOf = (t) =>
+            t && t.id != null ? `id:${t.id}` : `n:${String(t.name || '')}:${t.completed ? 1 : 0}`;
+        const map = new Map();
+        for (const t of [...L, ...C]) {
+            if (!t) continue;
+            const k = keyOf(t);
+            const prev = map.get(k);
+            map.set(k, prev ? { ...prev, ...t } : { ...t });
+        }
+        out[date] = Array.from(map.values());
+    }
+    return out;
+}
 
 function buildSyncPayload() {
     const prefs =
@@ -81,8 +125,9 @@ async function restoreFromCloud() {
 
         const todayKey = getTodayDateKey();
 
+        // Yerel (hydrate) verisi korunur; bulut aynı anahtarlarda üzerine yazar, yeni günler birleşir.
         if (cloudData.water_data && Object.keys(cloudData.water_data).length > 0) {
-            waterHistory = cloudData.water_data;
+            waterHistory = { ...waterHistory, ...cloudData.water_data };
             if (waterHistory[todayKey] !== undefined && waterHistory[todayKey] !== null) {
                 waterState.current = Number(waterHistory[todayKey]) || 0;
             } else {
@@ -91,7 +136,7 @@ async function restoreFromCloud() {
             if (typeof updateWaterUI === 'function') updateWaterUI();
         }
         if (cloudData.coffee_data && Object.keys(cloudData.coffee_data).length > 0) {
-            coffeeHistory = cloudData.coffee_data;
+            coffeeHistory = { ...coffeeHistory, ...cloudData.coffee_data };
             if (coffeeHistory[todayKey] !== undefined && coffeeHistory[todayKey] !== null) {
                 coffeeCurrent = Number(coffeeHistory[todayKey]) || 0;
             } else {
@@ -100,28 +145,25 @@ async function restoreFromCloud() {
             if (typeof updateCoffeeUI === 'function') updateCoffeeUI();
         }
         if (cloudData.mood_data && Object.keys(cloudData.mood_data).length > 0) {
-            moodDatabase = cloudData.mood_data;
+            moodDatabase = { ...moodDatabase, ...cloudData.mood_data };
             if (typeof renderMood === 'function') renderMood();
         }
-        if (
-            cloudData.habits_data &&
-            Array.isArray(cloudData.habits_data) &&
-            cloudData.habits_data.length > 0
-        ) {
-            habitsDatabase = cloudData.habits_data;
+        if (cloudData.habits_data && Array.isArray(cloudData.habits_data) && cloudData.habits_data.length > 0) {
+            habitsDatabase = mergeHabitsLists(habitsDatabase, cloudData.habits_data);
         }
         if (cloudData.tasks_data && Object.keys(cloudData.tasks_data).length > 0) {
-            tasksDatabase = cloudData.tasks_data;
+            tasksDatabase = mergeTasksByDate(tasksDatabase, cloudData.tasks_data);
         }
         if (cloudData.calendar_data && Object.keys(cloudData.calendar_data).length > 0) {
             if (typeof calEventsDatabase !== 'undefined') {
-                calEventsDatabase = cloudData.calendar_data;
+                calEventsDatabase = { ...calEventsDatabase, ...cloudData.calendar_data };
             }
         }
 
         if (cloudData.journal_data && Object.keys(cloudData.journal_data).length > 0) {
-            if (typeof journalApplyCloudData === 'function') {
-                journalApplyCloudData(cloudData.journal_data);
+            if (typeof journalApplyCloudData === 'function' && typeof journalExportForSync === 'function') {
+                const localJournal = journalExportForSync();
+                journalApplyCloudData({ ...cloudData.journal_data, ...localJournal });
             }
         }
 

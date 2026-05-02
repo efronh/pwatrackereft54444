@@ -493,20 +493,31 @@ const calMonthTitle = document.getElementById('cal-month-title');
 let viewingDate = new Date();
 let calEventsDatabase = {};
 
+function readLocalMirror(key) {
+    let v = typeof readParsedMirror === 'function' ? readParsedMirror(key) : null;
+    if (v != null) return v;
+    try {
+        const raw = localStorage.getItem(key);
+        return raw ? JSON.parse(raw) : null;
+    } catch {
+        return null;
+    }
+}
+
 function hydrateFromLocalMirrors() {
-    const wh = typeof readParsedMirror === 'function' ? readParsedMirror('waterHistory') : null;
+    const wh = readLocalMirror('waterHistory');
     if (wh) waterHistory = wh;
-    const ch = typeof readParsedMirror === 'function' ? readParsedMirror('coffeeHistory') : null;
+    const ch = readLocalMirror('coffeeHistory');
     if (ch) coffeeHistory = ch;
-    const md = typeof readParsedMirror === 'function' ? readParsedMirror('moodDatabase') : null;
+    const md = readLocalMirror('moodDatabase');
     if (md) moodDatabase = md;
-    const hb = typeof readParsedMirror === 'function' ? readParsedMirror('habitsDatabase') : null;
+    const hb = readLocalMirror('habitsDatabase');
     if (hb) habitsDatabase = hb;
-    const td = typeof readParsedMirror === 'function' ? readParsedMirror('tasksDatabase') : null;
+    const td = readLocalMirror('tasksDatabase');
     if (td) tasksDatabase = td;
-    const ce = typeof readParsedMirror === 'function' ? readParsedMirror('calEventsDatabase') : null;
+    const ce = readLocalMirror('calEventsDatabase');
     if (ce) calEventsDatabase = ce;
-    const jd = typeof readParsedMirror === 'function' ? readParsedMirror('journalDatabase') : null;
+    const jd = readLocalMirror('journalDatabase');
     if (jd && typeof journalApplyCloudData === 'function') journalApplyCloudData(jd);
 }
 
@@ -708,6 +719,8 @@ function renderWeekView() {
     renderCalendarMonth();
     renderMood();
     if (typeof initJournalUI === 'function') initJournalUI();
+
+    snapshotTrackerMirrors();
 
     window.addEventListener('offline', () => snapshotTrackerMirrors());
     window.addEventListener('online', async () => {

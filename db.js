@@ -79,11 +79,10 @@ window.db = {
             }
         }
 
-        if (payload.tasks_data) {
-            await _supabase.from('tasks').delete().eq('user_id', userId);
+        if (payload.tasks_data && typeof payload.tasks_data === 'object') {
             const taskInserts = [];
             for (const [date, tasks] of Object.entries(payload.tasks_data)) {
-                for (const t of tasks) {
+                for (const t of tasks || []) {
                     taskInserts.push({
                         user_id: userId,
                         task_date: date,
@@ -93,14 +92,17 @@ window.db = {
                     });
                 }
             }
-            if (taskInserts.length > 0) await _supabase.from('tasks').insert(taskInserts);
+            // Boş gönderimde silme yapma — buluttaki görevleri yanlışlıkla sıfırlama
+            if (taskInserts.length > 0) {
+                await _supabase.from('tasks').delete().eq('user_id', userId);
+                await _supabase.from('tasks').insert(taskInserts);
+            }
         }
 
-        if (payload.calendar_data) {
-            await _supabase.from('calendar_events').delete().eq('user_id', userId);
+        if (payload.calendar_data && typeof payload.calendar_data === 'object') {
             const eventInserts = [];
             for (const [date, events] of Object.entries(payload.calendar_data)) {
-                for (const ev of events) {
+                for (const ev of events || []) {
                     eventInserts.push({
                         user_id: userId,
                         event_date: date,
@@ -110,7 +112,10 @@ window.db = {
                     });
                 }
             }
-            if (eventInserts.length > 0) await _supabase.from('calendar_events').insert(eventInserts);
+            if (eventInserts.length > 0) {
+                await _supabase.from('calendar_events').delete().eq('user_id', userId);
+                await _supabase.from('calendar_events').insert(eventInserts);
+            }
         }
 
         // Günlük / journal (JSON payload per day)
