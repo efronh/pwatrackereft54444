@@ -340,7 +340,7 @@ updateTimeAndDate();
 
 waterAddBtns.forEach(btn => {
     btn.addEventListener('click', (e) => {
-        const amount = parseInt(e.target.dataset.amount);
+        const amount = parseInt(e.currentTarget.dataset.amount, 10);
         waterState.current += amount;
         updateWaterUI();
         
@@ -514,7 +514,10 @@ function hydrateFromLocalMirrors() {
     const hb = readLocalMirror('habitsDatabase');
     if (hb) habitsDatabase = hb;
     const td = readLocalMirror('tasksDatabase');
-    if (td) tasksDatabase = td;
+    if (td) {
+        tasksDatabase =
+            typeof mergeTasksByDate === 'function' ? mergeTasksByDate(td, {}) : td;
+    }
     const ce = readLocalMirror('calEventsDatabase');
     if (ce) calEventsDatabase = ce;
     const jd = readLocalMirror('journalDatabase');

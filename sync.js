@@ -23,18 +23,42 @@ function mergeHabitsLists(localArr, cloudArr) {
     return Array.from(byName.values());
 }
 
+/** Günlük su (ml) ve kahve (bardak) = birikimli toplam; bulut gecikmişse yereldeki yüksek değer korunur. */
+function mergeDayTotals(localMap, cloudMap) {
+    const keys = new Set([
+        ...Object.keys(localMap || {}),
+        ...Object.keys(cloudMap || {})
+    ]);
+    const out = {};
+    for (const k of keys) {
+        const l = Number(localMap[k]);
+        const c = Number(cloudMap[k]);
+        const ln = Number.isFinite(l) ? l : 0;
+        const cn = Number.isFinite(c) ? c : 0;
+        out[k] = Math.max(ln, cn);
+    }
+    return out;
+}
+
+/** Aynı görev yerelde (Date.now id) ve bulutta (satır id) farklı id ile gelir; id ile tekilleştirme çoğaltır. */
+function taskSemanticKey(t) {
+    const name = String(t.name || t.title || '').trim().toLowerCase();
+    const typ = String(t.type || '24h');
+    const done = t.completed ? 1 : 0;
+    return `${name}\u0000${typ}\u0000${done}`;
+}
+
 function mergeTasksByDate(localObj, cloudObj) {
     const dates = new Set([...Object.keys(localObj || {}), ...Object.keys(cloudObj || {})]);
     const out = {};
     for (const date of dates) {
         const L = localObj[date] || [];
         const C = cloudObj[date] || [];
-        const keyOf = (t) =>
-            t && t.id != null ? `id:${t.id}` : `n:${String(t.name || '')}:${t.completed ? 1 : 0}`;
         const map = new Map();
+        // Önce yerel, sonra bulut — aynı anahtarda son yazılan id alır (bulut id korunur)
         for (const t of [...L, ...C]) {
             if (!t) continue;
-            const k = keyOf(t);
+            const k = taskSemanticKey(t);
             const prev = map.get(k);
             map.set(k, prev ? { ...prev, ...t } : { ...t });
         }
@@ -60,7 +84,8 @@ function buildSyncPayload() {
         coffee_data: typeof coffeeHistory !== 'undefined' ? coffeeHistory : {},
         mood_data: typeof moodDatabase !== 'undefined' ? moodDatabase : {},
         habits_data: typeof habitsDatabase !== 'undefined' ? habitsDatabase : [],
-        tasks_data: typeof tasksDatabase !== 'undefined' ? tasksDatabase : {},
+        tasks_data:
+            typeof tasksDatabase !== 'undefined' ? mergeTasksByDate(tasksDatabase, {}) : {},
         calendar_data: typeof calEventsDatabase !== 'undefined' ? calEventsDatabase : {},
         journal_data:
             typeof journalExportForSync === 'function' ? journalExportForSync() : {},
@@ -125,9 +150,9 @@ async function restoreFromCloud() {
 
         const todayKey = getTodayDateKey();
 
-        // Yerel (hydrate) verisi korunur; bulut aynı anahtarlarda üzerine yazar, yeni günler birleşir.
+        // Su/kahve: gün bazında daha yüksek olanı al (bulut gecikmiş olabilir; spread ile bulut eskiyi ezmesin).
         if (cloudData.water_data && Object.keys(cloudData.water_data).length > 0) {
-            waterHistory = { ...waterHistory, ...cloudData.water_data };
+            waterHistory = mergeDayTotals(waterHistory, cloudData.water_data);
             if (waterHistory[todayKey] !== undefined && waterHistory[todayKey] !== null) {
                 waterState.current = Number(waterHistory[todayKey]) || 0;
             } else {
@@ -136,7 +161,7 @@ async function restoreFromCloud() {
             if (typeof updateWaterUI === 'function') updateWaterUI();
         }
         if (cloudData.coffee_data && Object.keys(cloudData.coffee_data).length > 0) {
-            coffeeHistory = { ...coffeeHistory, ...cloudData.coffee_data };
+            coffeeHistory = mergeDayTotals(coffeeHistory, cloudData.coffee_data);
             if (coffeeHistory[todayKey] !== undefined && coffeeHistory[todayKey] !== null) {
                 coffeeCurrent = Number(coffeeHistory[todayKey]) || 0;
             } else {

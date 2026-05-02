@@ -1,6 +1,31 @@
 const supabaseUrl = 'https://rjculoumurglbmwtpyjo.supabase.co';
 const supabaseKey = 'sb_publishable_PUyp2IQSkFgRx704bDUq2w_LNAczZbR';
 
+/** Uygulama: getTodayDateKey → YYYY-M-D (M 0–11). Postgres DATE → ISO YYYY-MM-DD. */
+function appDateKeyToPostgresDate(appKey) {
+    const p = String(appKey).split('-');
+    if (p.length < 3) return appKey;
+    const y = parseInt(p[0], 10);
+    const m0 = parseInt(p[1], 10);
+    const d = parseInt(p[2], 10);
+    if (!Number.isFinite(y) || !Number.isFinite(m0) || !Number.isFinite(d)) return appKey;
+    const m = String(m0 + 1).padStart(2, '0');
+    const dd = String(d).padStart(2, '0');
+    return `${y}-${m}-${dd}`;
+}
+
+function postgresDateToAppKey(value) {
+    if (value == null) return '';
+    const s = String(value);
+    const m = /^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(s);
+    if (!m) return s;
+    const y = parseInt(m[1], 10);
+    const month1 = parseInt(m[2], 10);
+    const d = parseInt(m[3], 10);
+    if (!Number.isFinite(y) || !Number.isFinite(month1) || !Number.isFinite(d)) return s;
+    return `${y}-${month1 - 1}-${d}`;
+}
+
 // Global Supabase istemcisi
 const _supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
 
@@ -36,35 +61,44 @@ window.db = {
     // Verileri bulutla eşitle (upsert to relational tables)
     syncData: async function(userId, payload) {
         if (payload.water_data) {
-            const waterUpserts = Object.keys(payload.water_data).map(date => ({
+            const waterUpserts = Object.keys(payload.water_data).map((date) => ({
                 user_id: userId,
-                log_date: date,
-                amount_ml: payload.water_data[date]
+                log_date: appDateKeyToPostgresDate(date),
+                amount_ml: Math.round(Number(payload.water_data[date]) || 0)
             }));
             if (waterUpserts.length > 0) {
-                await _supabase.from('water_logs').upsert(waterUpserts, { onConflict: 'user_id,log_date' });
+                const { error: wErr } = await _supabase
+                    .from('water_logs')
+                    .upsert(waterUpserts, { onConflict: 'user_id,log_date' });
+                if (wErr) console.warn('water_logs sync:', wErr.message);
             }
         }
 
         if (payload.mood_data) {
-            const moodUpserts = Object.keys(payload.mood_data).map(date => ({
+            const moodUpserts = Object.keys(payload.mood_data).map((date) => ({
                 user_id: userId,
-                log_date: date,
+                log_date: appDateKeyToPostgresDate(date),
                 mood_label: payload.mood_data[date]
             }));
             if (moodUpserts.length > 0) {
-                await _supabase.from('mood_logs').upsert(moodUpserts, { onConflict: 'user_id,log_date' });
+                const { error: moErr } = await _supabase
+                    .from('mood_logs')
+                    .upsert(moodUpserts, { onConflict: 'user_id,log_date' });
+                if (moErr) console.warn('mood_logs sync:', moErr.message);
             }
         }
 
         if (payload.coffee_data) {
-            const coffeeUpserts = Object.keys(payload.coffee_data).map(date => ({
+            const coffeeUpserts = Object.keys(payload.coffee_data).map((date) => ({
                 user_id: userId,
-                log_date: date,
-                cups: payload.coffee_data[date]
+                log_date: appDateKeyToPostgresDate(date),
+                cups: Math.round(Number(payload.coffee_data[date]) || 0)
             }));
             if (coffeeUpserts.length > 0) {
-                await _supabase.from('coffee_logs').upsert(coffeeUpserts, { onConflict: 'user_id,log_date' });
+                const { error: coErr } = await _supabase
+                    .from('coffee_logs')
+                    .upsert(coffeeUpserts, { onConflict: 'user_id,log_date' });
+                if (coErr) console.warn('coffee_logs sync:', coErr.message);
             }
         }
 
@@ -182,13 +216,22 @@ window.db = {
         };
 
         if (waterRes.data) {
-            waterRes.data.forEach(row => { data.water_data[row.log_date] = row.amount_ml; });
+            waterRes.data.forEach((row) => {
+                const k = postgresDateToAppKey(row.log_date);
+                if (k) data.water_data[k] = row.amount_ml;
+            });
         }
         if (moodRes.data) {
-            moodRes.data.forEach(row => { data.mood_data[row.log_date] = row.mood_label; });
+            moodRes.data.forEach((row) => {
+                const k = postgresDateToAppKey(row.log_date);
+                if (k) data.mood_data[k] = row.mood_label;
+            });
         }
         if (coffeeRes.data) {
-            coffeeRes.data.forEach(row => { data.coffee_data[row.log_date] = row.cups; });
+            coffeeRes.data.forEach((row) => {
+                const k = postgresDateToAppKey(row.log_date);
+                if (k) data.coffee_data[k] = row.cups;
+            });
         }
         if (habitRes.data) {
             data.habits_data = habitRes.data.map(row => ({
