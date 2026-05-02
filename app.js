@@ -522,6 +522,10 @@ function hydrateFromLocalMirrors() {
     if (ce) calEventsDatabase = ce;
     const jd = readLocalMirror('journalDatabase');
     if (jd && typeof journalApplyCloudData === 'function') journalApplyCloudData(jd);
+    const wp = readLocalMirror('weatherPrefs');
+    if (wp && typeof wp.lat === 'number' && typeof wp.lng === 'number') {
+        window.trackerWeatherPrefs = wp;
+    }
 }
 
 function snapshotTrackerMirrors() {
@@ -724,6 +728,12 @@ function renderWeekView() {
     if (typeof initJournalUI === 'function') initJournalUI();
 
     snapshotTrackerMirrors();
+
+    try {
+        if (typeof syncToCloudNow === 'function') await syncToCloudNow();
+    } catch (_) {
+        /* ignore */
+    }
 
     window.addEventListener('offline', () => snapshotTrackerMirrors());
     window.addEventListener('online', async () => {

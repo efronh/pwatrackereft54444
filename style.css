@@ -180,6 +180,41 @@ button {
     margin-bottom: 8px;
 }
 
+.weather-block {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+    background: rgba(0, 0, 0, 0.03);
+    padding: 6px 10px 5px;
+    border-radius: var(--radius-pill);
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.weather-block:hover {
+    background: rgba(0, 0, 0, 0.05);
+}
+
+.weather-block-main {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.weather-city-label {
+    font-size: 0.68rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    opacity: 0.72;
+    max-width: 170px;
+    text-align: right;
+    line-height: 1.2;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .time-block {
     margin-bottom: 12px;
 }

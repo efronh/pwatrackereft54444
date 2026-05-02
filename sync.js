@@ -40,6 +40,97 @@ function mergeDayTotals(localMap, cloudMap) {
     return out;
 }
 
+/** Buluttaki hava tercihi boş veya sadece İstanbul varsayılanıysa yerel seçimi ezme. */
+function mergeWeatherPrefsFromCloud(cloudPrefs) {
+    const local =
+        window.trackerWeatherPrefs &&
+        typeof window.trackerWeatherPrefs.lat === 'number' &&
+        typeof window.trackerWeatherPrefs.lng === 'number'
+            ? { ...window.trackerWeatherPrefs }
+            : typeof readParsedMirror === 'function'
+              ? readParsedMirror('weatherPrefs')
+              : null;
+
+    if (
+        local &&
+        typeof local.lat === 'number' &&
+        typeof local.lng === 'number' &&
+        (!window.trackerWeatherPrefs ||
+            typeof window.trackerWeatherPrefs.lat !== 'number')
+    ) {
+        window.trackerWeatherPrefs = {
+            lat: local.lat,
+            lng: local.lng,
+            city: String(local.city || '').trim()
+        };
+    }
+
+    const IST = { lat: 41.0082, lng: 28.9784 };
+    const near = (a, b, d = 0.03) => Math.abs(a - b) < d;
+    const isDefaultIstanbulCoords = (lat, lng) => near(lat, IST.lat) && near(lng, IST.lng);
+
+    const persistAndRefresh = () => {
+        if (window.trackerWeatherPrefs && typeof persistMirror === 'function') {
+            persistMirror('weatherPrefs', window.trackerWeatherPrefs);
+        }
+        if (typeof fetchWeather === 'function') fetchWeather();
+    };
+
+    if (!cloudPrefs || typeof cloudPrefs !== 'object') {
+        persistAndRefresh();
+        return;
+    }
+
+    const clat = cloudPrefs.weather_lat;
+    const clng = cloudPrefs.weather_lng;
+    const ccity = (cloudPrefs.weather_city && String(cloudPrefs.weather_city).trim()) || '';
+
+    const cloudOk =
+        typeof clat === 'number' &&
+        typeof clng === 'number' &&
+        Number.isFinite(clat) &&
+        Number.isFinite(clng);
+
+    const localHasCity = local && local.city && String(local.city).trim();
+    const localCustomCoords =
+        local &&
+        typeof local.lat === 'number' &&
+        typeof local.lng === 'number' &&
+        !isDefaultIstanbulCoords(local.lat, local.lng);
+
+    if (!cloudOk) {
+        if (local) {
+            window.trackerWeatherPrefs = {
+                lat: local.lat,
+                lng: local.lng,
+                city: String(local.city || '').trim()
+            };
+        }
+        persistAndRefresh();
+        return;
+    }
+
+    const cloudIsOnlyDefaultIstanbul =
+        isDefaultIstanbulCoords(clat, clng) &&
+        (!ccity || /^istanbul$/i.test(ccity));
+
+    if ((localHasCity || localCustomCoords) && cloudIsOnlyDefaultIstanbul) {
+        window.trackerWeatherPrefs = {
+            lat: local.lat,
+            lng: local.lng,
+            city: String(local.city || '').trim()
+        };
+    } else {
+        window.trackerWeatherPrefs = {
+            lat: clat,
+            lng: clng,
+            city: (ccity || (local && local.city) || '').trim()
+        };
+    }
+
+    persistAndRefresh();
+}
+
 /** Aynı görev yerelde (Date.now id) ve bulutta (satır id) farklı id ile gelir; id ile tekilleştirme çoğaltır. */
 function taskSemanticKey(t) {
     const name = String(t.name || t.title || '').trim().toLowerCase();
@@ -192,14 +283,7 @@ async function restoreFromCloud() {
             }
         }
 
-        if (cloudData.prefs && typeof cloudData.prefs === 'object') {
-            window.trackerWeatherPrefs = {
-                lat: cloudData.prefs.weather_lat,
-                lng: cloudData.prefs.weather_lng,
-                city: cloudData.prefs.weather_city || ''
-            };
-            if (typeof fetchWeather === 'function') fetchWeather();
-        }
+        mergeWeatherPrefsFromCloud(cloudData.prefs);
 
         if (typeof renderTasks === 'function') renderTasks();
         if (typeof renderCalendarMonth === 'function') renderCalendarMonth();

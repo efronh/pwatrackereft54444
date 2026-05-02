@@ -1,5 +1,6 @@
 
-function updateWaterUI() {
+function updateWaterUI(options) {
+    const skipCloud = options && options.skipCloudSync;
     waterCurrentEl.textContent = waterState.current;
     if (window.WaterProgress && typeof window.WaterProgress.compute === 'function') {
         const progress = window.WaterProgress.compute(waterState.current, waterState.goal);
@@ -17,7 +18,7 @@ function updateWaterUI() {
         waterHistory[todayKey] = waterState.current;
         persistMirror('waterHistory', waterHistory);
     }
-    syncToCloud();
+    if (!skipCloud) syncToCloud();
 }
 
 function loadWaterData() {
@@ -60,17 +61,18 @@ function loadWaterData() {
         }
     }
 
-    if (coffeeHistory[todayKey]) {
-        coffeeCurrent = coffeeHistory[todayKey];
+    if (coffeeHistory[todayKey] != null) {
+        coffeeCurrent = Number(coffeeHistory[todayKey]) || 0;
     } else {
         coffeeCurrent = 0;
     }
 
-    updateWaterUI();
-    updateCoffeeUI();
+    updateWaterUI({ skipCloudSync: true });
+    updateCoffeeUI({ skipCloudSync: true });
 }
 
-function updateCoffeeUI() {
+function updateCoffeeUI(options) {
+    const skipCloud = options && options.skipCloudSync;
     const coffeeEl = document.getElementById('coffee-current');
     if (!coffeeEl) return;
     coffeeEl.textContent = coffeeCurrent;
@@ -80,7 +82,7 @@ function updateCoffeeUI() {
         coffeeHistory[todayKey] = coffeeCurrent;
         persistMirror('coffeeHistory', coffeeHistory);
     }
-    syncToCloud();
+    if (!skipCloud) syncToCloud();
     if (typeof isStatsViewVisible === 'function' && isStatsViewVisible() && typeof renderWeeklyStats === 'function') {
         renderWeeklyStats();
     }

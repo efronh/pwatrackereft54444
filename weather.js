@@ -2,7 +2,11 @@
 // weather.js — coords sync via Supabase user_preferences (mirror only offline)
 const weatherIcon = document.getElementById('weather-icon');
 const weatherTemp = document.getElementById('weather-temp');
+const weatherCityLabel = document.getElementById('weather-city-label');
 const weatherBlock = document.getElementById('weather-block');
+
+const DEFAULT_IST_LAT = 41.0082;
+const DEFAULT_IST_LNG = 28.9784;
 
 const cityModalOverlay = document.getElementById('city-modal-overlay');
 const cityInput = document.getElementById('city-input');
@@ -13,8 +17,8 @@ if (!window.trackerWeatherPrefs) {
     window.trackerWeatherPrefs = null;
 }
 
-let currentLat = 41.0082;
-let currentLng = 28.9784;
+let currentLat = DEFAULT_IST_LAT;
+let currentLng = DEFAULT_IST_LNG;
 
 function loadCityCoords() {
     const p = window.trackerWeatherPrefs;
@@ -53,6 +57,23 @@ function loadCityCoords() {
     }
 }
 
+function updateWeatherCityLabel() {
+    if (!weatherCityLabel) return;
+    loadCityCoords();
+    let name = '';
+    const p = window.trackerWeatherPrefs;
+    if (p && p.city && String(p.city).trim()) {
+        name = String(p.city).trim();
+    } else if (
+        Math.abs(currentLat - DEFAULT_IST_LAT) < 0.02 &&
+        Math.abs(currentLng - DEFAULT_IST_LNG) < 0.02
+    ) {
+        name = 'Istanbul';
+    }
+    weatherCityLabel.textContent = name;
+    weatherCityLabel.style.display = name ? 'block' : 'none';
+}
+
 async function fetchWeather() {
     if (!weatherIcon || !weatherTemp) return;
     loadCityCoords();
@@ -83,10 +104,12 @@ async function fetchWeather() {
             weatherIcon.className = 'ph ph-cloud';
             weatherIcon.style.color = '#9e9e9e';
         }
+        updateWeatherCityLabel();
     } catch (e) {
         console.error('Weather fetch failed', e);
         weatherIcon.className = 'ph ph-cloud-slash';
         weatherTemp.textContent = 'Err';
+        updateWeatherCityLabel();
     }
 }
 
@@ -129,6 +152,15 @@ if (cityModalSave) {
                 };
                 if (typeof persistMirror === 'function') {
                     persistMirror('weatherPrefs', window.trackerWeatherPrefs);
+                }
+                try {
+                    localStorage.setItem('weatherCity', city.name);
+                    localStorage.setItem(
+                        'weatherCoords',
+                        JSON.stringify({ lat: currentLat, lng: currentLng })
+                    );
+                } catch (e) {
+                    /* ignore */
                 }
                 if (typeof syncToCloud === 'function') syncToCloud();
                 fetchWeather();
