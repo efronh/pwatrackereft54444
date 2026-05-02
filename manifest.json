@@ -8,12 +8,12 @@
   "description": "Private To-Do and Water Tracker mobile interface",
   "icons": [
     {
-      "src": "./app-icon.png",
+      "src": "./app-icon.png?v=4",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "./app-icon.png",
+      "src": "./app-icon.png?v=4",
       "sizes": "512x512",
       "type": "image/png"
     }
