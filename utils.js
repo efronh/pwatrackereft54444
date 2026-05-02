@@ -1,7 +1,16 @@
 
 function updateGreeting(displayNameRaw) {
     if (!heroGreetingEl) return;
-    const display = formatDisplayName(displayNameRaw || localStorage.getItem('preferredUsername'));
+    let name = displayNameRaw;
+    if (name == null || name === '') {
+        if (typeof window.getPreferredDisplayName === 'function') {
+            name = window.getPreferredDisplayName();
+        }
+    }
+    if (name == null || name === '') {
+        name = localStorage.getItem('preferredUsername');
+    }
+    const display = formatDisplayName(name);
     heroGreetingEl.textContent = display ? `Hello ${display}` : 'Hello';
 }
 

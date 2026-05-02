@@ -55,6 +55,36 @@ function getLocalSession() {
     }
 }
 
+function getPreferredDisplayName() {
+    try {
+        const uid = window.__trackerMirrorUserId;
+        if (uid) {
+            const scoped = localStorage.getItem(`preferredUsername__u_${uid}`);
+            if (scoped) return scoped;
+        }
+        return localStorage.getItem('preferredUsername');
+    } catch (_) {
+        return null;
+    }
+}
+
+function setPreferredDisplayName(displayName) {
+    const name = String(displayName || '').trim();
+    if (!name) return;
+    try {
+        const uid = window.__trackerMirrorUserId;
+        if (uid) {
+            localStorage.setItem(`preferredUsername__u_${uid}`, name);
+        }
+        localStorage.setItem('preferredUsername', name);
+    } catch (_) {
+        /* ignore */
+    }
+}
+
+window.getPreferredDisplayName = getPreferredDisplayName;
+window.setPreferredDisplayName = setPreferredDisplayName;
+
 function tryLocalRegister(username, pin) {
     const users = getLocalUsers();
     if (users[username]) {
@@ -88,11 +118,27 @@ async function loginWithUsernamePin() {
         if (window.db && window.db.loginUser) {
             await window.db.loginUser(syntheticEmail, pin);
             setLocalSession(username);
+            const sessionUser = await window.db.checkUser();
+            if (sessionUser?.id) {
+                window.__trackerMirrorUserId = sessionUser.id;
+                if (typeof mergePendingMirrorsIntoUser === 'function') {
+                    mergePendingMirrorsIntoUser(sessionUser.id);
+                }
+                if (typeof migrateLegacyMirrorsToUser === 'function') {
+                    migrateLegacyMirrorsToUser(sessionUser.id);
+                }
+            }
+            if (typeof hydrateFromLocalMirrors === 'function') {
+                hydrateFromLocalMirrors();
+            }
             await restoreFromCloud();
+            if (typeof window.snapshotTrackerMirrors === 'function') {
+                window.snapshotTrackerMirrors();
+            }
         } else {
             throw new Error('Veritabani baglantisi bulunamadi.');
         }
-        localStorage.setItem('preferredUsername', displayUsername);
+        setPreferredDisplayName(displayUsername);
         updateGreeting(displayUsername);
         hideAuthModal();
         renderWeeklyStats();
@@ -112,15 +158,30 @@ async function registerWithUsernamePin() {
         const syntheticEmail = buildSupabaseEmailFromUsername(username);
         if (window.db && window.db.registerUser && window.db.loginUser) {
             await window.db.registerUser(syntheticEmail, pin);
-            // Always attempt sign-in after sign-up for consistent UX.
             await window.db.loginUser(syntheticEmail, pin);
             setLocalSession(username);
+            const sessionUser = await window.db.checkUser();
+            if (sessionUser?.id) {
+                window.__trackerMirrorUserId = sessionUser.id;
+                if (typeof mergePendingMirrorsIntoUser === 'function') {
+                    mergePendingMirrorsIntoUser(sessionUser.id);
+                }
+                if (typeof migrateLegacyMirrorsToUser === 'function') {
+                    migrateLegacyMirrorsToUser(sessionUser.id);
+                }
+            }
+            if (typeof hydrateFromLocalMirrors === 'function') {
+                hydrateFromLocalMirrors();
+            }
             await restoreFromCloud();
+            if (typeof window.snapshotTrackerMirrors === 'function') {
+                window.snapshotTrackerMirrors();
+            }
         } else {
             throw new Error('Veritabani baglantisi bulunamadi.');
         }
 
-        localStorage.setItem('preferredUsername', displayUsername);
+        setPreferredDisplayName(displayUsername);
         updateGreeting(displayUsername);
         hideAuthModal();
         renderWeeklyStats();
@@ -161,19 +222,42 @@ async function initAuthGate() {
             localSession = getLocalSession();
         }
 
+        if (isSupabaseAuthed && supabaseUser?.id) {
+            window.__trackerMirrorUserId = supabaseUser.id;
+            if (typeof mergePendingMirrorsIntoUser === 'function') {
+                mergePendingMirrorsIntoUser(supabaseUser.id);
+            }
+            if (typeof migrateLegacyMirrorsToUser === 'function') {
+                migrateLegacyMirrorsToUser(supabaseUser.id);
+            }
+            if (typeof hydrateFromLocalMirrors === 'function') {
+                hydrateFromLocalMirrors();
+            }
+        }
+
         if (isSupabaseAuthed) {
-            const name = localSession?.username || localStorage.getItem('preferredUsername');
+            const name =
+                localSession?.username ||
+                (typeof getPreferredDisplayName === 'function'
+                    ? getPreferredDisplayName()
+                    : localStorage.getItem('preferredUsername'));
             if (name) updateGreeting(name);
             hideAuthModal();
             await restoreFromCloud();
             return;
         }
 
-        // Supabase session is missing or expired, force re-login!
-        updateGreeting(localStorage.getItem('preferredUsername'));
+        updateGreeting(
+            typeof getPreferredDisplayName === 'function'
+                ? getPreferredDisplayName()
+                : localStorage.getItem('preferredUsername')
+        );
         showAuthModal();
         if (authUsernameInput) {
-            const saved = localStorage.getItem('preferredUsername');
+            const saved =
+                typeof getPreferredDisplayName === 'function'
+                    ? getPreferredDisplayName()
+                    : localStorage.getItem('preferredUsername');
             if (saved) authUsernameInput.value = saved;
         }
     } catch (err) {

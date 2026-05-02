@@ -494,14 +494,7 @@ let viewingDate = new Date();
 let calEventsDatabase = {};
 
 function readLocalMirror(key) {
-    let v = typeof readParsedMirror === 'function' ? readParsedMirror(key) : null;
-    if (v != null) return v;
-    try {
-        const raw = localStorage.getItem(key);
-        return raw ? JSON.parse(raw) : null;
-    } catch {
-        return null;
-    }
+    return typeof readParsedMirror === 'function' ? readParsedMirror(key) : null;
 }
 
 function hydrateFromLocalMirrors() {
@@ -547,6 +540,8 @@ function snapshotTrackerMirrors() {
     }
 }
 
+window.snapshotTrackerMirrors = snapshotTrackerMirrors;
+window.hydrateFromLocalMirrors = hydrateFromLocalMirrors;
 
 calPrevBtn.addEventListener('click', () => {
     const isWeekMode = document.querySelector('.mode-btn:nth-child(2)').classList.contains('active');
@@ -696,6 +691,25 @@ function renderWeekView() {
     const didReset = await hardResetUserDataIfRequested();
     if (didReset) return;
 
+    let mirrorUid = null;
+    if (window.db && window.db.checkUser) {
+        try {
+            const u = await window.db.checkUser();
+            mirrorUid = u?.id || null;
+        } catch (e) {
+            console.warn('Mirror user resolve failed', e);
+        }
+    }
+    window.__trackerMirrorUserId = mirrorUid;
+    if (mirrorUid) {
+        if (typeof mergePendingMirrorsIntoUser === 'function') {
+            mergePendingMirrorsIntoUser(mirrorUid);
+        }
+        if (typeof migrateLegacyMirrorsToUser === 'function') {
+            migrateLegacyMirrorsToUser(mirrorUid);
+        }
+    }
+
     hydrateFromLocalMirrors();
 
     try {
@@ -718,7 +732,11 @@ function renderWeekView() {
         /* ignore */
     }
 
-    updateGreeting(localStorage.getItem('preferredUsername'));
+    updateGreeting(
+        typeof window.getPreferredDisplayName === 'function'
+            ? window.getPreferredDisplayName()
+            : localStorage.getItem('preferredUsername')
+    );
     await initAuthGate();
     loadWaterData();
     renderTasks();

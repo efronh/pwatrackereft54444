@@ -28,36 +28,21 @@ function loadWaterData() {
         if (waterHistory[todayKey] !== undefined && waterHistory[todayKey] !== null) {
             waterState.current = Number(waterHistory[todayKey]) || 0;
         } else {
-            try {
-                const saved = localStorage.getItem('waterData');
-                if (saved) {
-                    const data = JSON.parse(saved);
-                    if (data.date === new Date().toLocaleDateString()) {
-                        waterState.current = Number(data.current) || 0;
-                        waterHistory[todayKey] = waterState.current;
-                    } else {
-                        waterState.current = 0;
-                    }
-                } else {
-                    waterState.current = 0;
-                }
-            } catch {
+            const data =
+                typeof readParsedMirror === 'function' ? readParsedMirror('waterData') : null;
+            if (data && data.date === new Date().toLocaleDateString()) {
+                waterState.current = Number(data.current) || 0;
+                waterHistory[todayKey] = waterState.current;
+            } else {
                 waterState.current = 0;
             }
         }
     } else {
-        const saved = localStorage.getItem('waterData');
-        if (saved) {
-            try {
-                const data = JSON.parse(saved);
-                if (data.date === new Date().toLocaleDateString()) {
-                    waterState.current = data.current;
-                } else {
-                    waterState.current = 0;
-                }
-            } catch {
-                waterState.current = 0;
-            }
+        const data = typeof readParsedMirror === 'function' ? readParsedMirror('waterData') : null;
+        if (data && data.date === new Date().toLocaleDateString()) {
+            waterState.current = data.current;
+        } else {
+            waterState.current = 0;
         }
     }
 

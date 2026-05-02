@@ -1,19 +1,19 @@
 {
-  "name": "Personal Tracker",
-  "short_name": "Tracker",
+  "name": "aruba",
+  "short_name": "aruba",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#f6f6f2",
   "theme_color": "#f6f6f2",
-  "description": "Private To-Do and Water Tracker mobile interface",
+  "description": "Personal tracker — habits, tasks, journal, water",
   "icons": [
     {
-      "src": "./app-icon.png?v=4",
+      "src": "./app-icon.png?v=5",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "./app-icon.png?v=4",
+      "src": "./app-icon.png?v=5",
       "sizes": "512x512",
       "type": "image/png"
     }
