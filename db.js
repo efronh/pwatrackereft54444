@@ -26,6 +26,54 @@ function postgresDateToAppKey(value) {
     return `${y}-${month1 - 1}-${d}`;
 }
 
+/** Takvim günü: yerelde saat slotu → obje; eski bulutta dizi olabilir. */
+function normalizeCalendarDayToObject(dayValue) {
+    if (dayValue == null) return {};
+    if (Array.isArray(dayValue)) {
+        const o = {};
+        dayValue.forEach((ev, i) => {
+            if (!ev) return;
+            const slot =
+                ev.start_hour != null && Number.isFinite(Number(ev.start_hour))
+                    ? Number(ev.start_hour)
+                    : 9 + i * 0.5;
+            o[String(slot)] = {
+                name: String(ev.name || ev.title || '').trim(),
+                duration: ev.duration,
+                note: ev.note || ''
+            };
+        });
+        return o;
+    }
+    if (typeof dayValue === 'object') return { ...dayValue };
+    return {};
+}
+
+function calendarDayToDbRows(dateKey, dayValue, userId) {
+    const rows = [];
+    const dayObj = normalizeCalendarDayToObject(dayValue);
+    for (const [hourStr, ev] of Object.entries(dayObj)) {
+        if (!ev || typeof ev !== 'object') continue;
+        const slot = parseFloat(hourStr);
+        if (!Number.isFinite(slot)) continue;
+        const title = String(ev.name || ev.title || '').trim();
+        if (!title) continue;
+        let dur = Number(ev.duration);
+        if (!Number.isFinite(dur) || dur <= 0) dur = 60;
+        if (dur <= 24) dur = dur * 60;
+        dur = Math.round(dur);
+        rows.push({
+            user_id: userId,
+            event_date: appDateKeyToPostgresDate(dateKey),
+            title,
+            duration_mins: dur,
+            note: String(ev.note || '').trim(),
+            start_hour: slot
+        });
+    }
+    return rows;
+}
+
 // Global Supabase istemcisi (Safari / Mac: oturum ayarlari acik; storageKey varsayilan — mevcut oturumlar korunur)
 const _supabase = window.supabase.createClient(supabaseUrl, supabaseKey, {
     auth: {
@@ -143,22 +191,16 @@ window.db = {
             }
         }
 
-        if (payload.calendar_data && typeof payload.calendar_data === 'object') {
+        if (payload.calendar_data != null && typeof payload.calendar_data === 'object') {
+            const { error: calDelErr } = await _supabase.from('calendar_events').delete().eq('user_id', userId);
+            if (calDelErr) console.warn('calendar_events delete:', calDelErr.message);
             const eventInserts = [];
-            for (const [date, events] of Object.entries(payload.calendar_data)) {
-                for (const ev of events || []) {
-                    eventInserts.push({
-                        user_id: userId,
-                        event_date: date,
-                        title: ev.title || '',
-                        duration_mins: ev.duration || 60,
-                        note: ev.note || ''
-                    });
-                }
+            for (const [dateKey, dayValue] of Object.entries(payload.calendar_data)) {
+                eventInserts.push(...calendarDayToDbRows(dateKey, dayValue, userId));
             }
             if (eventInserts.length > 0) {
-                await _supabase.from('calendar_events').delete().eq('user_id', userId);
-                await _supabase.from('calendar_events').insert(eventInserts);
+                const { error: calInsErr } = await _supabase.from('calendar_events').insert(eventInserts);
+                if (calInsErr) console.warn('calendar_events insert:', calInsErr.message);
             }
         }
 
@@ -261,14 +303,22 @@ window.db = {
             });
         }
         if (calRes.data) {
-            calRes.data.forEach(row => {
-                if (!data.calendar_data[row.event_date]) data.calendar_data[row.event_date] = [];
-                data.calendar_data[row.event_date].push({
-                    title: row.title,
+            calRes.data.forEach((row) => {
+                const appKey = postgresDateToAppKey(row.event_date);
+                if (!appKey) return;
+                if (!data.calendar_data[appKey]) data.calendar_data[appKey] = {};
+                const slot =
+                    row.start_hour != null && Number.isFinite(Number(row.start_hour))
+                        ? Number(row.start_hour)
+                        : 0;
+                data.calendar_data[appKey][String(slot)] = {
+                    name: row.title,
                     duration: row.duration_mins,
-                    note: row.note
-                });
+                    note: row.note || ''
+                };
             });
+        } else if (calRes.error) {
+            console.warn('calendar_events fetch:', calRes.error.message);
         }
         if (!journalRes.error && journalRes.data) {
             journalRes.data.forEach((row) => {

@@ -498,6 +498,7 @@ function switchCalendarMode(mode) {
 function saveCalEvents() {
     if (typeof persistMirror === 'function') persistMirror('calEventsDatabase', calEventsDatabase);
     syncToCloud();
+    if (typeof syncToCloudNow === 'function') syncToCloudNow();
 }
 
 function openEventModal(title, defaultVal, defaultDur, onSave, onDelete) {

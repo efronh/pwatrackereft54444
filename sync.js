@@ -23,6 +23,41 @@ function mergeHabitsLists(localArr, cloudArr) {
     return Array.from(byName.values());
 }
 
+function normalizeCalendarDayForMerge(dayValue) {
+    if (dayValue == null) return {};
+    if (Array.isArray(dayValue)) {
+        const o = {};
+        dayValue.forEach((ev, i) => {
+            if (!ev) return;
+            const slot =
+                ev.start_hour != null && Number.isFinite(Number(ev.start_hour))
+                    ? Number(ev.start_hour)
+                    : 9 + i * 0.5;
+            o[String(slot)] = {
+                name: String(ev.name || ev.title || '').trim(),
+                duration: ev.duration,
+                note: ev.note || ''
+            };
+        });
+        return o;
+    }
+    if (typeof dayValue === 'object') return { ...dayValue };
+    return {};
+}
+
+function mergeCalendarData(localObj, cloudObj) {
+    const out = { ...(localObj && typeof localObj === 'object' ? localObj : {}) };
+    for (const [dateKey, cloudDay] of Object.entries(cloudObj || {})) {
+        const locDay = out[dateKey];
+        const merged = {
+            ...normalizeCalendarDayForMerge(locDay),
+            ...normalizeCalendarDayForMerge(cloudDay)
+        };
+        out[dateKey] = merged;
+    }
+    return out;
+}
+
 /** Günlük su (ml) ve kahve (bardak) = birikimli toplam; bulut gecikmişse yereldeki yüksek değer korunur. */
 function mergeDayTotals(localMap, cloudMap) {
     const keys = new Set([
@@ -312,7 +347,7 @@ async function restoreFromCloud() {
         }
         if (cloudData.calendar_data && Object.keys(cloudData.calendar_data).length > 0) {
             if (typeof calEventsDatabase !== 'undefined') {
-                calEventsDatabase = { ...calEventsDatabase, ...cloudData.calendar_data };
+                calEventsDatabase = mergeCalendarData(calEventsDatabase, cloudData.calendar_data);
             }
         }
 

@@ -33,6 +33,7 @@ CREATE TABLE public.calendar_events (
     title TEXT NOT NULL,
     duration_mins INTEGER DEFAULT 60,
     note TEXT,
+    start_hour DOUBLE PRECISION NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 ALTER TABLE public.calendar_events ENABLE ROW LEVEL SECURITY;
