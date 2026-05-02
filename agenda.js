@@ -1,6 +1,43 @@
+const TASK_COMPLETED_PRUNE_MS = 10 * 60 * 1000;
+
+function pruneStaleCompletedTasks() {
+    if (typeof tasksDatabase === 'undefined' || !tasksDatabase) return false;
+    let changed = false;
+    const now = Date.now();
+    for (const dateKey of Object.keys(tasksDatabase)) {
+        const arr = tasksDatabase[dateKey];
+        if (!Array.isArray(arr)) continue;
+        const next = [];
+        for (const t of arr) {
+            if (!t) continue;
+            if (t.completed) {
+                if (t.completedAt == null) {
+                    t.completedAt = Date.now();
+                    changed = true;
+                }
+                if (now - t.completedAt >= TASK_COMPLETED_PRUNE_MS) {
+                    changed = true;
+                    continue;
+                }
+            }
+            next.push(t);
+        }
+        if (next.length !== arr.length) changed = true;
+        if (next.length === 0) delete tasksDatabase[dateKey];
+        else tasksDatabase[dateKey] = next;
+    }
+    return changed;
+}
 
 function renderTasks() {
     if (!habitsList || !todayTasksList) return;
+
+    if (typeof tasksDatabase !== 'undefined' && typeof saveTasks === 'function') {
+        if (pruneStaleCompletedTasks()) {
+            saveTasks();
+            if (typeof syncToCloudNow === 'function') syncToCloudNow();
+        }
+    }
     
     const todayKey = getTodayDateKey();
     
@@ -73,6 +110,11 @@ function renderTasks() {
         checkbox.innerHTML = '<i class="ph ph-check"></i>';
         checkbox.addEventListener('click', () => {
             task.completed = !task.completed;
+            if (task.completed) {
+                task.completedAt = Date.now();
+            } else {
+                delete task.completedAt;
+            }
             saveTasks();
             renderTasks();
         });
@@ -92,15 +134,19 @@ function renderTasks() {
         deleteBtn.style.cursor = 'pointer';
         deleteBtn.style.opacity = '0.5';
         deleteBtn.addEventListener('click', () => {
-            // Remove from the original array
-            tasksDatabase[originalDateKey].splice(originalIndex, 1);
-            
-            // Clean up empty arrays
-            if (tasksDatabase[originalDateKey].length === 0) {
+            const arr = tasksDatabase[originalDateKey];
+            if (!Array.isArray(arr)) return;
+            let idx = originalIndex;
+            if (task.id != null) {
+                const found = arr.findIndex((x) => x && String(x.id) === String(task.id));
+                if (found >= 0) idx = found;
+            }
+            arr.splice(idx, 1);
+            if (arr.length === 0) {
                 delete tasksDatabase[originalDateKey];
             }
-            
             saveTasks();
+            if (typeof syncToCloudNow === 'function') syncToCloudNow();
             renderTasks();
         });
         
@@ -472,4 +518,13 @@ function openNoteModal(eventName, defaultNote, onSave, onDelete) {
     noteModalOverlay.classList.remove('hidden-view');
     noteModalInput.focus();
 }
+
+setInterval(() => {
+    if (typeof tasksDatabase === 'undefined' || typeof saveTasks !== 'function') return;
+    if (pruneStaleCompletedTasks()) {
+        saveTasks();
+        if (typeof syncToCloudNow === 'function') syncToCloudNow();
+        if (typeof renderTasks === 'function') renderTasks();
+    }
+}, 60000);
 

@@ -131,13 +131,46 @@ function mergeWeatherPrefsFromCloud(cloudPrefs) {
     persistAndRefresh();
 }
 
-/** Aynı görev yerelde (Date.now id) ve bulutta (satır id) farklı id ile gelir; id ile tekilleştirme çoğaltır. */
+/** Aynı isim+tür aynı günde tek satır (tamamlanma durumu ayrı anahtar olmasın — ikilenir). */
 function taskSemanticKey(t) {
     const name = String(t.name || t.title || '').trim().toLowerCase();
     const typ = String(t.type || '24h');
-    const done = t.completed ? 1 : 0;
-    return `${name}\u0000${typ}\u0000${done}`;
+    return `${name}\u0000${typ}`;
 }
+
+function dedupeForeverTasksGlobally(db) {
+    const seen = new Set();
+    const keys = Object.keys(db).sort();
+    for (const dk of keys) {
+        const arr = db[dk];
+        if (!Array.isArray(arr)) continue;
+        const kept = [];
+        for (const t of arr) {
+            if (!t) continue;
+            if (t.type === 'forever') {
+                const nk = String(t.name || '').trim().toLowerCase();
+                if (seen.has(nk)) continue;
+                seen.add(nk);
+            }
+            kept.push(t);
+        }
+        if (kept.length === 0) delete db[dk];
+        else db[dk] = kept;
+    }
+}
+
+function normalizeTasksDatabase(raw) {
+    try {
+        const copy = JSON.parse(JSON.stringify(raw || {}));
+        const merged = mergeTasksByDate(copy, {});
+        dedupeForeverTasksGlobally(merged);
+        return merged;
+    } catch {
+        return raw || {};
+    }
+}
+
+window.normalizeTasksDatabase = normalizeTasksDatabase;
 
 function mergeTasksByDate(localObj, cloudObj) {
     const dates = new Set([...Object.keys(localObj || {}), ...Object.keys(cloudObj || {})]);
@@ -176,7 +209,11 @@ function buildSyncPayload() {
         mood_data: typeof moodDatabase !== 'undefined' ? moodDatabase : {},
         habits_data: typeof habitsDatabase !== 'undefined' ? habitsDatabase : [],
         tasks_data:
-            typeof tasksDatabase !== 'undefined' ? mergeTasksByDate(tasksDatabase, {}) : {},
+            typeof tasksDatabase !== 'undefined' && typeof normalizeTasksDatabase === 'function'
+                ? normalizeTasksDatabase(tasksDatabase)
+                : typeof tasksDatabase !== 'undefined'
+                  ? mergeTasksByDate(tasksDatabase, {})
+                  : {},
         calendar_data: typeof calEventsDatabase !== 'undefined' ? calEventsDatabase : {},
         journal_data:
             typeof journalExportForSync === 'function' ? journalExportForSync() : {},
@@ -269,6 +306,9 @@ async function restoreFromCloud() {
         }
         if (cloudData.tasks_data && Object.keys(cloudData.tasks_data).length > 0) {
             tasksDatabase = mergeTasksByDate(tasksDatabase, cloudData.tasks_data);
+        }
+        if (typeof tasksDatabase !== 'undefined' && typeof normalizeTasksDatabase === 'function') {
+            tasksDatabase = normalizeTasksDatabase(tasksDatabase);
         }
         if (cloudData.calendar_data && Object.keys(cloudData.calendar_data).length > 0) {
             if (typeof calEventsDatabase !== 'undefined') {

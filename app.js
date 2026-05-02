@@ -412,6 +412,9 @@ function saveHabits() {
     syncToCloud();
 }
 function saveTasks() {
+    if (typeof normalizeTasksDatabase === 'function') {
+        tasksDatabase = normalizeTasksDatabase(tasksDatabase);
+    }
     persistMirror('tasksDatabase', tasksDatabase);
     syncToCloud();
 }
@@ -455,7 +458,12 @@ if(addTaskBtn) {
         if(val) {
             const todayKey = getTodayDateKey();
             if (!tasksDatabase[todayKey]) tasksDatabase[todayKey] = [];
-            tasksDatabase[todayKey].push({ id: Date.now(), name: val, completed: false, type: selectedDuration });
+            tasksDatabase[todayKey].push({
+                id: Date.now() + Math.random(),
+                name: val,
+                completed: false,
+                type: selectedDuration
+            });
             taskInput.value = '';
             saveTasks();
             renderTasks();
@@ -508,8 +516,11 @@ function hydrateFromLocalMirrors() {
     if (hb) habitsDatabase = hb;
     const td = readLocalMirror('tasksDatabase');
     if (td) {
-        tasksDatabase =
-            typeof mergeTasksByDate === 'function' ? mergeTasksByDate(td, {}) : td;
+        if (typeof normalizeTasksDatabase === 'function') {
+            tasksDatabase = normalizeTasksDatabase(td);
+        } else {
+            tasksDatabase = typeof mergeTasksByDate === 'function' ? mergeTasksByDate(td, {}) : td;
+        }
     }
     const ce = readLocalMirror('calEventsDatabase');
     if (ce) calEventsDatabase = ce;
@@ -826,18 +837,25 @@ if ('serviceWorker' in navigator) {
     });
 }
 
+const authFormEl = document.getElementById('auth-form');
+
+if (authFormEl) {
+    authFormEl.addEventListener('submit', (event) => {
+        event.preventDefault();
+        loginWithUsernamePin();
+    });
+}
+
 if (authLoginBtn) {
-    authLoginBtn.addEventListener('click', loginWithUsernamePin);
+    authLoginBtn.addEventListener('mousedown', () => {
+        if (authPinInput) authPinInput.setAttribute('autocomplete', 'current-password');
+    });
 }
 
 if (authRegisterBtn) {
+    authRegisterBtn.addEventListener('mousedown', () => {
+        if (authPinInput) authPinInput.setAttribute('autocomplete', 'new-password');
+    });
     authRegisterBtn.addEventListener('click', registerWithUsernamePin);
 }
 
-if (authPinInput) {
-    authPinInput.addEventListener('keydown', (event) => {
-        if (event.key === 'Enter') {
-            loginWithUsernamePin();
-        }
-    });
-}

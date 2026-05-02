@@ -186,8 +186,14 @@ async function registerWithUsernamePin() {
         hideAuthModal();
         renderWeeklyStats();
     } catch (err) {
-        const raw = err?.message || 'Kayit basarisiz.';
-        if (/already registered|already been registered|user already registered/i.test(raw)) {
+        const raw = String(err?.message || err || 'Kayit basarisiz.');
+        const lower = raw.toLowerCase();
+        const dupHint =
+            err?.code === 'user_already_exists' ||
+            /already registered|already been registered|user already registered|email.*already|already exists|duplicate|taken|identities already exist|email address is already in use/i.test(
+                lower
+            );
+        if (dupHint) {
             setAuthError('Bu kullanici adi zaten kayitli. Giris Yap ile devam et.');
         } else if (/Password should be at least 6 characters/i.test(raw)) {
             setAuthError('PIN Supabase kurali nedeniyle 6 hane olmali.');

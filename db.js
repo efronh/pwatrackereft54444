@@ -26,8 +26,15 @@ function postgresDateToAppKey(value) {
     return `${y}-${month1 - 1}-${d}`;
 }
 
-// Global Supabase istemcisi
-const _supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+// Global Supabase istemcisi (Safari / Mac: oturum ayarlari acik; storageKey varsayilan — mevcut oturumlar korunur)
+const _supabase = window.supabase.createClient(supabaseUrl, supabaseKey, {
+    auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+        storage: typeof window !== 'undefined' ? window.localStorage : undefined
+    }
+});
 
 window.db = {
     supabase: _supabase,

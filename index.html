@@ -34,17 +34,17 @@
     <script src="https://unpkg.com/recharts@2.12.7/umd/Recharts.js"></script>
     <script src="./water-progress.js?v=1" defer></script>
     <script src="./stats-chart.js?v=2" defer></script>
-    <script src="./db.js?v=102" defer></script>
+    <script src="./db.js?v=103" defer></script>
     <!-- Refactored Modules -->
     <script src="./utils.js?v=2" defer></script>
-    <script src="./auth.js?v=5" defer></script>
+    <script src="./auth.js?v=6" defer></script>
     <script src="./cloud-mirror.js?v=3" defer></script>
-    <script src="./sync.js?v=6" defer></script>
+    <script src="./sync.js?v=7" defer></script>
     <script src="./trackers.js?v=6" defer></script>
-    <script src="./agenda.js?v=3" defer></script>
+    <script src="./agenda.js?v=5" defer></script>
     <script src="./weather.js?v=4" defer></script>
     <script src="./journal.js?v=4" defer></script>
-    <script src="./app.js?v=1015" defer></script>
+    <script src="./app.js?v=1017" defer></script>
 </head>
 <body>
     <div id="app-container">
@@ -426,16 +426,18 @@
             <div class="event-modal" style="text-align: center;">
                 <h2 style="font-family: var(--font-heading); margin-bottom: 8px;">Welcome</h2>
                 <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 24px;">Kullanici adi ve PIN ile giris yap. Oturum acik kalir.</p>
-                
-                <input type="text" id="auth-username" placeholder="Kullanici adi" style="margin-bottom: 12px;">
-                <input type="password" id="auth-pin" placeholder="6 haneli PIN" inputmode="numeric" style="margin-bottom: 16px;">
+
+                <form id="auth-form" method="post" action="#" autocomplete="on" style="margin: 0;">
+                <input type="text" id="auth-username" name="username" autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="next" placeholder="Kullanici adi" style="margin-bottom: 12px; width: 100%; box-sizing: border-box;">
+                <input type="password" id="auth-pin" name="password" autocomplete="current-password" inputmode="numeric" maxlength="6" pattern="[0-9]{6}" enterkeyhint="go" placeholder="6 haneli PIN" style="margin-bottom: 16px; width: 100%; box-sizing: border-box;">
                 
                 <div id="auth-error" style="color: #D53302; font-size: 0.85rem; margin-bottom: 16px; min-height: 16px;"></div>
 
                 <div style="display: flex; flex-direction: column; gap: 10px;">
-                    <button id="auth-login-btn" style="background: var(--text-main); color: #fff; padding: 12px; border-radius: var(--radius-pill); font-weight: 500; font-size: 1rem;">Giris Yap</button>
-                    <button id="auth-register-btn" style="background: #f0f0f0; color: var(--text-main); padding: 12px; border-radius: var(--radius-pill); font-weight: 500; font-size: 1rem;">Hesap Olustur</button>
+                    <button type="submit" id="auth-login-btn" style="background: var(--text-main); color: #fff; padding: 12px; border-radius: var(--radius-pill); font-weight: 500; font-size: 1rem; border: none; cursor: pointer;">Giris Yap</button>
+                    <button type="button" id="auth-register-btn" style="background: #f0f0f0; color: var(--text-main); padding: 12px; border-radius: var(--radius-pill); font-weight: 500; font-size: 1rem; border: none; cursor: pointer;">Hesap Olustur</button>
                 </div>
+                </form>
             </div>
         </div>
 
