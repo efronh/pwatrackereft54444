@@ -3,10 +3,12 @@ const viewTodayBtn = document.getElementById('view-today-btn');
 const viewCalendarBtn = document.getElementById('view-calendar-btn');
 const viewTasksBtn = document.getElementById('view-tasks-btn');
 const viewStatsBtn = document.getElementById('view-stats-btn');
+const viewJournalBtn = document.getElementById('view-journal-btn');
 const viewToday = document.getElementById('view-today');
 const viewCalendar = document.getElementById('view-calendar');
 const viewTasks = document.getElementById('view-tasks');
 const viewStats = document.getElementById('view-stats');
+const viewJournal = document.getElementById('view-journal');
 
 const localTimeEl = document.getElementById('local-time');
 const heroDateEl = document.getElementById('hero-date');
@@ -54,11 +56,17 @@ function formatDisplayName(nameRaw) {
 
 
 function hideAuthModal() {
-    if (authModalOverlay) authModalOverlay.style.display = 'none';
+    if (authModalOverlay) {
+        authModalOverlay.classList.add('hidden-view');
+        authModalOverlay.style.display = 'none';
+    }
 }
 
 function showAuthModal() {
-    if (authModalOverlay) authModalOverlay.style.display = 'flex';
+    if (authModalOverlay) {
+        authModalOverlay.classList.remove('hidden-view');
+        authModalOverlay.style.display = 'flex';
+    }
 }
 
 
@@ -156,26 +164,30 @@ let waterState = {
     current: 0,
     goal: 2000
 };
-let waterHistory = JSON.parse(localStorage.getItem('waterHistory') || '{}');
+let waterHistory = {};
 
 let coffeeCurrent = 0;
-let coffeeHistory = JSON.parse(localStorage.getItem('coffeeHistory') || '{}');
+let coffeeHistory = {};
 
 // View Toggling
 function switchView(viewName) {
     // Hide all
-    [viewToday, viewCalendar, viewTasks, viewStats].forEach(v => {
+    [viewToday, viewCalendar, viewTasks, viewStats, viewJournal].forEach(v => {
+        if (!v) return;
         v.classList.remove('active-view');
         v.classList.add('hidden-view');
     });
     // Remove active styles from pills
-    [viewTodayBtn, viewCalendarBtn, viewTasksBtn, viewStatsBtn].forEach(b => b.classList.remove('active'));
+    [viewTodayBtn, viewCalendarBtn, viewTasksBtn, viewStatsBtn, viewJournalBtn].forEach(b => {
+        if (b) b.classList.remove('active');
+    });
 
     if (viewName === 'today') {
         viewTodayBtn.classList.add('active');
         viewToday.classList.add('active-view');
         viewToday.classList.remove('hidden-view');
         renderTodayEvents();
+        if (typeof journalOnSwitchToTodayView === 'function') journalOnSwitchToTodayView();
         if(addBtn) addBtn.style.display = 'flex';
     } else if (viewName === 'calendar') {
         viewCalendarBtn.classList.add('active');
@@ -193,6 +205,12 @@ function switchView(viewName) {
         viewStats.classList.remove('hidden-view');
         if(addBtn) addBtn.style.display = 'none';
         renderWeeklyStats();
+    } else if (viewName === 'journal' && viewJournal) {
+        if (viewJournalBtn) viewJournalBtn.classList.add('active');
+        viewJournal.classList.add('active-view');
+        viewJournal.classList.remove('hidden-view');
+        if(addBtn) addBtn.style.display = 'none';
+        if (typeof journalOnOpenTab === 'function') journalOnOpenTab();
     }
 }
 
@@ -200,6 +218,7 @@ viewTodayBtn.addEventListener('click', () => switchView('today'));
 viewCalendarBtn.addEventListener('click', () => switchView('calendar'));
 viewTasksBtn.addEventListener('click', () => switchView('tasks'));
 viewStatsBtn.addEventListener('click', () => switchView('stats'));
+if (viewJournalBtn) viewJournalBtn.addEventListener('click', () => switchView('journal'));
 
 function getISODateOnly(date) {
     const offset = date.getTimezoneOffset();
@@ -313,12 +332,7 @@ async function renderWeeklyStats() {
 setInterval(updateTimeAndDate, 60000);
 updateTimeAndDate();
 
-// --- WEATHER LOGIC ---
-const weatherIcon = document.getElementById('weather-icon');
-const weatherTemp = document.getElementById('weather-temp');
-
-fetchWeather();
-setInterval(fetchWeather, 3600000); // refresh every hour
+// Weather: weather.js (fetch + city modal + hourly refresh)
 
 // Water Tracking Logic
 
@@ -356,7 +370,7 @@ coffeeBtns.forEach(btn => {
 
 // --- MOOD TRACKER LOGIC ---
 const moodBtns = document.querySelectorAll('.mood-btn');
-let moodDatabase = JSON.parse(localStorage.getItem('moodDatabase') || '{}');
+let moodDatabase = {};
 
 
 moodBtns.forEach(btn => {
@@ -369,7 +383,7 @@ moodBtns.forEach(btn => {
         } else {
             moodDatabase[todayKey] = selectedMood;
         }
-        localStorage.setItem('moodDatabase', JSON.stringify(moodDatabase));
+        persistMirror('moodDatabase', moodDatabase);
         renderMood();
         syncToCloud();
 
@@ -388,16 +402,16 @@ const habitsList = document.getElementById('habits-list');
 const todayTasksList = document.getElementById('today-tasks-list');
 
 // Databases
-let habitsDatabase = JSON.parse(localStorage.getItem('habitsDatabase') || '[]');
-let tasksDatabase = JSON.parse(localStorage.getItem('tasksDatabase') || '{}');
+let habitsDatabase = [];
+let tasksDatabase = {};
 
 
 function saveHabits() {
-    localStorage.setItem('habitsDatabase', JSON.stringify(habitsDatabase));
+    persistMirror('habitsDatabase', habitsDatabase);
     syncToCloud();
 }
 function saveTasks() {
-    localStorage.setItem('tasksDatabase', JSON.stringify(tasksDatabase));
+    persistMirror('tasksDatabase', tasksDatabase);
     syncToCloud();
 }
 
@@ -461,16 +475,6 @@ if(addTaskBtn) {
     });
 }
 
-// Ensure Legacy Migration
-let legacyCustomTasks = JSON.parse(localStorage.getItem('customTasks') || '[]');
-if (legacyCustomTasks.length > 0) {
-    legacyCustomTasks.forEach(t => {
-        habitsDatabase.push({ id: Date.now() + Math.random(), name: t.name, completedDates: {} });
-    });
-    localStorage.removeItem('customTasks');
-    saveHabits();
-}
-
 // --- DYNAMIC TODAY EVENTS LOGIC ---
 const todayDynamicEvents = document.getElementById('today-dynamic-events');
 
@@ -499,7 +503,45 @@ const calNextBtn = document.getElementById('cal-next');
 const calMonthTitle = document.getElementById('cal-month-title');
 
 let viewingDate = new Date();
-let calEventsDatabase = JSON.parse(localStorage.getItem('calEventsDatabase') || '{}');
+let calEventsDatabase = {};
+
+function hydrateOfflineFromMirrors() {
+    if (typeof isTrackerOnline === 'function' && isTrackerOnline()) return;
+    const wh = typeof readParsedMirror === 'function' ? readParsedMirror('waterHistory') : null;
+    if (wh) waterHistory = wh;
+    const ch = typeof readParsedMirror === 'function' ? readParsedMirror('coffeeHistory') : null;
+    if (ch) coffeeHistory = ch;
+    const md = typeof readParsedMirror === 'function' ? readParsedMirror('moodDatabase') : null;
+    if (md) moodDatabase = md;
+    const hb = typeof readParsedMirror === 'function' ? readParsedMirror('habitsDatabase') : null;
+    if (hb) habitsDatabase = hb;
+    const td = typeof readParsedMirror === 'function' ? readParsedMirror('tasksDatabase') : null;
+    if (td) tasksDatabase = td;
+    const ce = typeof readParsedMirror === 'function' ? readParsedMirror('calEventsDatabase') : null;
+    if (ce) calEventsDatabase = ce;
+    const jd = typeof readParsedMirror === 'function' ? readParsedMirror('journalDatabase') : null;
+    if (jd && typeof journalApplyCloudData === 'function') journalApplyCloudData(jd);
+}
+
+function snapshotTrackerMirrors() {
+    if (typeof isTrackerOnline === 'function' && isTrackerOnline()) return;
+    persistMirror('waterHistory', waterHistory);
+    persistMirror('coffeeHistory', coffeeHistory);
+    persistMirror('moodDatabase', moodDatabase);
+    persistMirror('habitsDatabase', habitsDatabase);
+    persistMirror('tasksDatabase', tasksDatabase);
+    persistMirror('calEventsDatabase', calEventsDatabase);
+    persistMirror('waterData', {
+        ...waterState,
+        date: new Date().toLocaleDateString()
+    });
+    if (typeof journalExportForSync === 'function') {
+        persistMirror('journalDatabase', journalExportForSync());
+    }
+    if (window.trackerWeatherPrefs && typeof persistMirror === 'function') {
+        persistMirror('weatherPrefs', window.trackerWeatherPrefs);
+    }
+}
 
 
 calPrevBtn.addEventListener('click', () => {
@@ -650,13 +692,46 @@ function renderWeekView() {
     const didReset = await hardResetUserDataIfRequested();
     if (didReset) return;
 
+    hydrateOfflineFromMirrors();
+
+    try {
+        const legacyRaw = localStorage.getItem('customTasks');
+        if (legacyRaw) {
+            const legacyList = JSON.parse(legacyRaw);
+            if (Array.isArray(legacyList) && legacyList.length > 0) {
+                legacyList.forEach((t) => {
+                    habitsDatabase.push({
+                        id: Date.now() + Math.random(),
+                        name: t.name,
+                        completedDates: {}
+                    });
+                });
+                localStorage.removeItem('customTasks');
+                saveHabits();
+            }
+        }
+    } catch (_) {
+        /* ignore */
+    }
+
     updateGreeting(localStorage.getItem('preferredUsername'));
+    await initAuthGate();
     loadWaterData();
     renderTasks();
     renderTodayEvents();
     renderCalendarMonth();
     renderMood();
-    initAuthGate();
+    if (typeof initJournalUI === 'function') initJournalUI();
+
+    window.addEventListener('offline', () => snapshotTrackerMirrors());
+    window.addEventListener('online', async () => {
+        try {
+            await syncToCloudNow();
+            await restoreFromCloud();
+        } catch (e) {
+            console.warn('Reconnect sync failed', e);
+        }
+    });
 })();
 
 // Quick Add Global Listeners

@@ -87,6 +87,7 @@ async function loginWithUsernamePin() {
         const syntheticEmail = buildSupabaseEmailFromUsername(username);
         if (window.db && window.db.loginUser) {
             await window.db.loginUser(syntheticEmail, pin);
+            setLocalSession(username);
             await restoreFromCloud();
         } else {
             throw new Error('Veritabani baglantisi bulunamadi.');
@@ -113,6 +114,7 @@ async function registerWithUsernamePin() {
             await window.db.registerUser(syntheticEmail, pin);
             // Always attempt sign-in after sign-up for consistent UX.
             await window.db.loginUser(syntheticEmail, pin);
+            setLocalSession(username);
             await restoreFromCloud();
         } else {
             throw new Error('Veritabani baglantisi bulunamadi.');
@@ -138,13 +140,14 @@ async function registerWithUsernamePin() {
 
 async function initAuthGate() {
     try {
-        const localSession = getLocalSession();
+        let localSession = getLocalSession();
         let isSupabaseAuthed = false;
+        let supabaseUser = null;
 
         if (window.db && window.db.checkUser) {
             try {
-                const sessionUser = await window.db.checkUser();
-                if (sessionUser) {
+                supabaseUser = await window.db.checkUser();
+                if (supabaseUser) {
                     isSupabaseAuthed = true;
                 }
             } catch (supaErr) {
@@ -152,10 +155,17 @@ async function initAuthGate() {
             }
         }
 
-        if (isSupabaseAuthed && localSession?.username) {
-            updateGreeting(localSession.username);
+        if (isSupabaseAuthed && supabaseUser?.email && !localSession?.username) {
+            const derived = String(supabaseUser.email).split('@')[0];
+            if (derived) setLocalSession(derived);
+            localSession = getLocalSession();
+        }
+
+        if (isSupabaseAuthed) {
+            const name = localSession?.username || localStorage.getItem('preferredUsername');
+            if (name) updateGreeting(name);
             hideAuthModal();
-            restoreFromCloud();
+            await restoreFromCloud();
             return;
         }
 

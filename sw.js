@@ -1,11 +1,13 @@
-const CACHE_NAME = 'tracker-pwa-v26';
+const CACHE_NAME = 'tracker-pwa-v27';
+
 const APP_SHELL = [
   './',
   './index.html',
-  './style.css?v=12',
-  './app.js?v=14',
-  './db.js?v=1',
+  './style.css?v=14',
+  './app.js?v=1007',
+  './db.js?v=100',
   './manifest.json',
+  './app-icon.png',
   './mood-happy.png?v=3',
   './mood-sad.png?v=3',
   './mood-tired.png?v=3',
@@ -15,9 +17,7 @@ const APP_SHELL = [
 ];
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL))
-  );
+  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)));
   self.skipWaiting();
 });
 
@@ -34,27 +34,37 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   if (request.method !== 'GET') return;
 
-  // Keep SPA shell bootable while offline.
+  const origin = self.location.origin;
+
   if (request.mode === 'navigate') {
     event.respondWith(
-      fetch(request).catch(() => caches.match('./index.html'))
+      fetch(request)
+        .then((response) => {
+          const copy = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put('./index.html', copy));
+          return response;
+        })
+        .catch(() => caches.match('./index.html'))
     );
     return;
   }
 
   event.respondWith(
-    caches.match(request).then((cached) => {
-      if (cached) return cached;
-      return fetch(request)
-        .then((response) => {
-          const isHttp = request.url.startsWith('http');
-          if (isHttp && (request.url.includes(location.origin) || request.destination === 'script' || request.destination === 'style')) {
-            const cloned = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(request, cloned));
+    fetch(request)
+      .then((response) => {
+        try {
+          const url = new URL(request.url);
+          if (url.origin === origin && response.ok) {
+            const copy = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
           }
-          return response;
-        })
-        .catch(() => caches.match('./index.html'));
-    })
+        } catch (_) {
+          /* ignore */
+        }
+        return response;
+      })
+      .catch(() =>
+        caches.match(request).then((cached) => cached || caches.match('./index.html'))
+      )
   );
 });

@@ -6,34 +6,45 @@ function updateWaterUI() {
         waterBarEl.style.width = `${progress.percentage}%`;
         waterBarEl.style.backgroundColor = progress.toneColor;
     }
-    
-    // Save to localStorage
-    localStorage.setItem('waterData', JSON.stringify({
+
+    persistMirror('waterData', {
         ...waterState,
         date: new Date().toLocaleDateString()
-    }));
+    });
 
     if (typeof getTodayDateKey === 'function') {
         const todayKey = getTodayDateKey();
         waterHistory[todayKey] = waterState.current;
-        localStorage.setItem('waterHistory', JSON.stringify(waterHistory));
+        persistMirror('waterHistory', waterHistory);
     }
     syncToCloud();
 }
 
 function loadWaterData() {
-    const saved = localStorage.getItem('waterData');
-    if (saved) {
-        const data = JSON.parse(saved);
-        // Reset if it's a new day
-        if (data.date === new Date().toLocaleDateString()) {
-            waterState.current = data.current;
+    const todayKey = getTodayDateKey();
+
+    if (typeof isTrackerOnline === 'function' && isTrackerOnline()) {
+        if (waterHistory[todayKey] !== undefined && waterHistory[todayKey] !== null) {
+            waterState.current = Number(waterHistory[todayKey]) || 0;
         } else {
             waterState.current = 0;
         }
+    } else {
+        const saved = localStorage.getItem('waterData');
+        if (saved) {
+            try {
+                const data = JSON.parse(saved);
+                if (data.date === new Date().toLocaleDateString()) {
+                    waterState.current = data.current;
+                } else {
+                    waterState.current = 0;
+                }
+            } catch {
+                waterState.current = 0;
+            }
+        }
     }
-    
-    const todayKey = getTodayDateKey();
+
     if (coffeeHistory[todayKey]) {
         coffeeCurrent = coffeeHistory[todayKey];
     } else {
@@ -48,25 +59,27 @@ function updateCoffeeUI() {
     const coffeeEl = document.getElementById('coffee-current');
     if (!coffeeEl) return;
     coffeeEl.textContent = coffeeCurrent;
-    
+
     if (typeof getTodayDateKey === 'function') {
         const todayKey = getTodayDateKey();
         coffeeHistory[todayKey] = coffeeCurrent;
-        localStorage.setItem('coffeeHistory', JSON.stringify(coffeeHistory));
+        persistMirror('coffeeHistory', coffeeHistory);
     }
     syncToCloud();
+    if (typeof isStatsViewVisible === 'function' && isStatsViewVisible() && typeof renderWeeklyStats === 'function') {
+        renderWeeklyStats();
+    }
 }
 
 function renderMood() {
     if (!moodBtns || moodBtns.length === 0) return;
     const todayKey = getTodayDateKey();
     const currentMood = moodDatabase[todayKey];
-    
-    moodBtns.forEach(btn => {
+
+    moodBtns.forEach((btn) => {
         btn.classList.remove('active');
         if (btn.dataset.mood === currentMood) {
             btn.classList.add('active');
         }
     });
 }
-

@@ -1,21 +1,61 @@
 
-async function syncToCloud() {
+function buildSyncPayload() {
+    const prefs =
+        window.trackerWeatherPrefs &&
+        typeof window.trackerWeatherPrefs.lat === 'number' &&
+        typeof window.trackerWeatherPrefs.lng === 'number'
+            ? {
+                  weather_lat: window.trackerWeatherPrefs.lat,
+                  weather_lng: window.trackerWeatherPrefs.lng,
+                  weather_city: window.trackerWeatherPrefs.city || null
+              }
+            : null;
+
+    return {
+        water_data: typeof waterHistory !== 'undefined' ? waterHistory : {},
+        coffee_data: typeof coffeeHistory !== 'undefined' ? coffeeHistory : {},
+        mood_data: typeof moodDatabase !== 'undefined' ? moodDatabase : {},
+        habits_data: typeof habitsDatabase !== 'undefined' ? habitsDatabase : [],
+        tasks_data: typeof tasksDatabase !== 'undefined' ? tasksDatabase : {},
+        calendar_data: typeof calEventsDatabase !== 'undefined' ? calEventsDatabase : {},
+        journal_data:
+            typeof journalExportForSync === 'function' ? journalExportForSync() : {},
+        prefs
+    };
+}
+
+async function syncToCloudNow() {
     if (!window.db || !window.db.syncData) return;
     const session = getLocalSession();
-    if (!session?.username) return; // Need active session
+    if (!session?.username) return;
 
     try {
         const user = await window.db.checkUser();
-        if (!user) return; // Must be authenticated to Supabase
+        if (!user) return;
 
-        const payload = {
-            water_data: waterHistory,
-            coffee_data: coffeeHistory,
-            mood_data: moodDatabase,
-            habits_data: habitsDatabase,
-            tasks_data: tasksDatabase,
-            calendar_data: (typeof calEventsDatabase !== 'undefined' ? calEventsDatabase : {})
-        };
+        if (syncTimeout) {
+            clearTimeout(syncTimeout);
+            syncTimeout = null;
+        }
+
+        const payload = buildSyncPayload();
+        await window.db.syncData(user.id, payload);
+        console.log('Synced to cloud (immediate).');
+    } catch (err) {
+        console.warn('Immediate sync failed:', err);
+    }
+}
+
+async function syncToCloud() {
+    if (!window.db || !window.db.syncData) return;
+    const session = getLocalSession();
+    if (!session?.username) return;
+
+    try {
+        const user = await window.db.checkUser();
+        if (!user) return;
+
+        const payload = buildSyncPayload();
 
         if (syncTimeout) clearTimeout(syncTimeout);
         syncTimeout = setTimeout(async () => {
@@ -37,59 +77,72 @@ async function restoreFromCloud() {
         const user = await window.db.checkUser();
         if (!user) return;
         const cloudData = await window.db.fetchData(user.id);
-        if (!cloudData) return; // No cloud data yet
+        if (!cloudData) return;
 
-        // Restore if we have data
+        const todayKey = getTodayDateKey();
+
         if (cloudData.water_data && Object.keys(cloudData.water_data).length > 0) {
             waterHistory = cloudData.water_data;
-            localStorage.setItem('waterHistory', JSON.stringify(waterHistory));
-            const todayKey = getTodayDateKey();
-            if (waterHistory[todayKey]) {
-                waterState.current = waterHistory[todayKey];
+            if (waterHistory[todayKey] !== undefined && waterHistory[todayKey] !== null) {
+                waterState.current = Number(waterHistory[todayKey]) || 0;
             } else {
                 waterState.current = 0;
             }
-            updateWaterUI();
+            if (typeof updateWaterUI === 'function') updateWaterUI();
         }
         if (cloudData.coffee_data && Object.keys(cloudData.coffee_data).length > 0) {
             coffeeHistory = cloudData.coffee_data;
-            localStorage.setItem('coffeeHistory', JSON.stringify(coffeeHistory));
-            const todayKey = getTodayDateKey();
-            if (coffeeHistory[todayKey]) {
-                coffeeCurrent = coffeeHistory[todayKey];
+            if (coffeeHistory[todayKey] !== undefined && coffeeHistory[todayKey] !== null) {
+                coffeeCurrent = Number(coffeeHistory[todayKey]) || 0;
             } else {
                 coffeeCurrent = 0;
             }
-            updateCoffeeUI();
+            if (typeof updateCoffeeUI === 'function') updateCoffeeUI();
         }
         if (cloudData.mood_data && Object.keys(cloudData.mood_data).length > 0) {
             moodDatabase = cloudData.mood_data;
-            localStorage.setItem('moodDatabase', JSON.stringify(moodDatabase));
             if (typeof renderMood === 'function') renderMood();
         }
         if (cloudData.habits_data && Array.isArray(cloudData.habits_data)) {
             habitsDatabase = cloudData.habits_data;
-            localStorage.setItem('habitsDatabase', JSON.stringify(habitsDatabase));
         }
         if (cloudData.tasks_data && Object.keys(cloudData.tasks_data).length > 0) {
             tasksDatabase = cloudData.tasks_data;
-            localStorage.setItem('tasksDatabase', JSON.stringify(tasksDatabase));
         }
         if (cloudData.calendar_data && Object.keys(cloudData.calendar_data).length > 0) {
             if (typeof calEventsDatabase !== 'undefined') {
                 calEventsDatabase = cloudData.calendar_data;
-                localStorage.setItem('calEventsDatabase', JSON.stringify(calEventsDatabase));
             }
         }
-        
+
+        if (cloudData.journal_data && Object.keys(cloudData.journal_data).length > 0) {
+            if (typeof journalApplyCloudData === 'function') {
+                journalApplyCloudData(cloudData.journal_data);
+            }
+        }
+
+        if (cloudData.prefs && typeof cloudData.prefs === 'object') {
+            window.trackerWeatherPrefs = {
+                lat: cloudData.prefs.weather_lat,
+                lng: cloudData.prefs.weather_lng,
+                city: cloudData.prefs.weather_city || ''
+            };
+            if (typeof fetchWeather === 'function') fetchWeather();
+        }
+
         if (typeof renderTasks === 'function') renderTasks();
-        if (typeof renderCalendar === 'function') renderCalendar();
+        if (typeof renderCalendarMonth === 'function') renderCalendarMonth();
         if (typeof renderTodayEvents === 'function') renderTodayEvents();
+        if (typeof journalRenderMiniCalendar === 'function') journalRenderMiniCalendar();
+        if (typeof journalOnSwitchToTodayView === 'function') journalOnSwitchToTodayView();
         if (typeof renderWeeklyStats === 'function' && isStatsViewVisible()) renderWeeklyStats();
-        
+
+        if (typeof isTrackerOnline === 'function' && isTrackerOnline()) {
+            clearAppDataMirrors();
+        }
+
         console.log('Successfully restored data from cloud.');
     } catch (err) {
         console.warn('Failed to restore from cloud:', err);
     }
 }
-

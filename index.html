@@ -24,7 +24,7 @@
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     
     <!-- CSS and JS -->
-    <link rel="stylesheet" href="./style.css?v=12">
+    <link rel="stylesheet" href="./style.css?v=14">
     <!-- Supabase SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- React + Recharts (UMD) -->
@@ -33,16 +33,18 @@
     <script src="https://unpkg.com/prop-types@15.8.1/prop-types.min.js"></script>
     <script src="https://unpkg.com/recharts@2.12.7/umd/Recharts.js"></script>
     <script src="./water-progress.js?v=1" defer></script>
-    <script src="./stats-chart.js?v=1" defer></script>
-    <script src="./db.js?v=99" defer></script>
+    <script src="./stats-chart.js?v=2" defer></script>
+    <script src="./db.js?v=100" defer></script>
     <!-- Refactored Modules -->
     <script src="./utils.js?v=1" defer></script>
-    <script src="./auth.js?v=1" defer></script>
-    <script src="./sync.js?v=1" defer></script>
-    <script src="./trackers.js?v=1" defer></script>
-    <script src="./agenda.js?v=1" defer></script>
-    <script src="./weather.js?v=1" defer></script>
-    <script src="./app.js?v=1003" defer></script>
+    <script src="./auth.js?v=3" defer></script>
+    <script src="./cloud-mirror.js?v=1" defer></script>
+    <script src="./sync.js?v=2" defer></script>
+    <script src="./trackers.js?v=3" defer></script>
+    <script src="./agenda.js?v=2" defer></script>
+    <script src="./weather.js?v=3" defer></script>
+    <script src="./journal.js?v=3" defer></script>
+    <script src="./app.js?v=1007" defer></script>
 </head>
 <body>
     <div id="app-container">
@@ -53,6 +55,7 @@
                 <button id="view-calendar-btn" class="toggle-btn">Calendar</button>
                 <button id="view-tasks-btn" class="toggle-btn">Tasks</button>
                 <button id="view-stats-btn" class="toggle-btn">Stats</button>
+                <button id="view-journal-btn" class="toggle-btn">Journal</button>
             </div>
             <button id="add-btn" class="icon-btn">
                 <i class="ph ph-plus"></i>
@@ -129,6 +132,17 @@
                     </div>
                 </div>
 
+                <!-- Daily journal quick capture -->
+                <div class="card journal-teaser-card">
+                    <div class="card-header">
+                        <h2>Daily reflection</h2>
+                        <i class="ph ph-notebook"></i>
+                    </div>
+                    <p class="journal-teaser-date" id="journal-teaser-date"></p>
+                    <textarea id="journal-today-quick" class="journal-quick-textarea" rows="3" placeholder="What's on your mind today? One entry per day — saved automatically."></textarea>
+                    <button type="button" id="journal-open-full-btn" class="journal-open-full-btn">Full journal &amp; history</button>
+                </div>
+
                 <!-- DYNAMIC CARDS CONTAINER -->
                 <div id="today-dynamic-events" style="display: flex; flex-direction: column; gap: 16px;">
                     <!-- Cards will be rendered here by JS -->
@@ -179,6 +193,95 @@
             </section>
         </main>
 
+        <!-- View: Journal -->
+        <main id="view-journal" class="view hidden-view">
+            <section class="journal-view-header">
+                <h1>Daily journal</h1>
+                <p>Reflection &mdash; one entry per day</p>
+            </section>
+
+            <section class="journal-cal-toolbar">
+                <button type="button" class="journal-cal-nav-btn" id="journal-cal-prev" aria-label="Previous month"><i class="ph ph-caret-left"></i></button>
+                <h2 class="journal-month-title" id="journal-month-title">MAY 2026</h2>
+                <button type="button" class="journal-cal-nav-btn" id="journal-cal-next" aria-label="Next month"><i class="ph ph-caret-right"></i></button>
+            </section>
+            <div id="journal-mini-cal" class="journal-mini-cal"></div>
+
+            <p class="journal-selected-label" id="journal-selected-date-label"></p>
+            <button type="button" id="journal-jump-today" class="journal-jump-today">Jump to today</button>
+
+            <section class="card journal-editor-card">
+                <div class="journal-field">
+                    <span class="journal-field-label">Day rating</span>
+                    <div class="journal-rating-row">
+                        <button type="button" class="journal-rating-btn" data-value="1" title="1">😫</button>
+                        <button type="button" class="journal-rating-btn" data-value="2" title="2">😕</button>
+                        <button type="button" class="journal-rating-btn" data-value="3" title="3">😐</button>
+                        <button type="button" class="journal-rating-btn" data-value="4" title="4">🙂</button>
+                        <button type="button" class="journal-rating-btn" data-value="5" title="5">😄</button>
+                    </div>
+                </div>
+
+                <div class="journal-field">
+                    <label class="journal-field-label" for="journal-tags-input">Tags</label>
+                    <input type="text" id="journal-tags-input" class="journal-input" placeholder="#stressful #productive #social" autocomplete="off">
+                </div>
+
+                <div class="journal-field">
+                    <label class="journal-field-label" for="journal-body">Today&apos;s note</label>
+                    <textarea id="journal-body" class="journal-body-textarea" rows="5" placeholder="Free writing — whatever's on your mind."></textarea>
+                </div>
+
+                <details class="journal-prompts-details">
+                    <summary>Guided prompts <span class="journal-optional">(optional)</span></summary>
+                    <div class="journal-prompt-block">
+                        <span class="journal-prompt-emoji">🌅</span>
+                        <label for="journal-intention">What&apos;s your intention for today?</label>
+                        <input type="text" id="journal-intention" class="journal-input" placeholder="Morning intention…">
+                    </div>
+                    <div class="journal-prompt-block">
+                        <span class="journal-prompt-emoji">🌙</span>
+                        <label for="journal-evening-well">What went well?</label>
+                        <input type="text" id="journal-evening-well" class="journal-input" placeholder="…">
+                    </div>
+                    <div class="journal-prompt-block">
+                        <span class="journal-prompt-emoji">🌙</span>
+                        <label for="journal-evening-drain">What drained you?</label>
+                        <input type="text" id="journal-evening-drain" class="journal-input" placeholder="…">
+                    </div>
+                    <div class="journal-prompt-block">
+                        <span class="journal-prompt-emoji">🙏</span>
+                        <span class="journal-field-label">3 things you&apos;re grateful for</span>
+                        <input type="text" id="journal-gratitude-0" class="journal-input" placeholder="1.">
+                        <input type="text" id="journal-gratitude-1" class="journal-input" placeholder="2.">
+                        <input type="text" id="journal-gratitude-2" class="journal-input" placeholder="3.">
+                    </div>
+                    <div class="journal-prompt-block">
+                        <span class="journal-prompt-emoji">💡</span>
+                        <label for="journal-differently">What would you do differently?</label>
+                        <input type="text" id="journal-differently" class="journal-input" placeholder="Reflection…">
+                    </div>
+                </details>
+
+                <div class="journal-insights">
+                    <div class="journal-insight-block">
+                        <span class="journal-insight-title">Today&apos;s snapshot</span>
+                        <p id="journal-auto-summary" class="journal-insight-text"></p>
+                    </div>
+                    <div class="journal-insight-block">
+                        <span class="journal-insight-title">Tasks</span>
+                        <p id="journal-task-snapshot" class="journal-insight-text"></p>
+                    </div>
+                    <div class="journal-insight-block">
+                        <span class="journal-insight-title">Mood vs journal</span>
+                        <p id="journal-correlation" class="journal-insight-text"></p>
+                    </div>
+                </div>
+
+                <button type="button" id="journal-save-btn" class="journal-save-btn">Save entry</button>
+            </section>
+        </main>
+
         <!-- View: Tasks -->
         <main id="view-tasks" class="view hidden-view">
             <section class="tasks-header">
@@ -186,30 +289,25 @@
                 <p>Personal tasks & regular habits</p>
             </section>
             
-            <section class="task-input-section" style="flex-direction: column; gap: 8px; align-items: stretch;">
-                <input type="text" id="new-task-input" placeholder="Add a task or habit..." style="width: 100%;">
-                
-                <!-- Inline Task Duration Selection -->
-                <div style="display: flex; gap: 8px; justify-content: center; margin-bottom: 2px;">
-                    <button id="duration-toggle-today" class="active" style="flex: 1; padding: 6px; border-radius: var(--radius-pill); border: 2px solid var(--card-teal); background: rgba(175,221,215,0.2); color: var(--text-main); font-size: 0.85rem; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; transition: all 0.2s;">
-                        24 Saat <i class="ph ph-clock"></i>
-                    </button>
-                    <button id="duration-toggle-forever" style="flex: 1; padding: 6px; border-radius: var(--radius-pill); border: 2px solid transparent; background: transparent; color: var(--text-muted); font-size: 0.85rem; font-weight: 500; display: flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; transition: all 0.2s;">
-                        Kalıcı <i class="ph ph-infinity"></i>
-                    </button>
-                </div>
+            <section class="task-input-section" style="flex-direction: column; gap: 10px; align-items: stretch;">
+                <button id="add-habit-btn" style="width: 100%; height: 48px; background: #e5f0fa; color: #8FB1BE; border: none; border-radius: var(--radius-pill); font-weight: 600; font-size: 0.95rem; cursor: pointer;">+ Daily Habit</button>
 
-                <div style="display: flex; gap: 10px; height: 48px;">
-                    <button id="add-habit-btn" style="flex:1; background: #e5f0fa; color: #8FB1BE; border-radius: var(--radius-pill); font-weight: 500; font-size: 0.95rem;">+ Daily Habit</button>
-                    <button id="add-task-btn" style="flex:1; background: var(--card-teal); color: #000; border-radius: var(--radius-pill); font-weight: 500; font-size: 0.95rem;">+ Task</button>
+                <h3 style="margin-bottom: 6px; font-size: 1.1rem; color: var(--text-muted); padding-left: 5px;">Daily Habits</h3>
+                <div id="habits-list" style="display: flex; flex-direction: column; gap: 12px;"></div>
+
+                <h3 style="margin-top: 12px; margin-bottom: 6px; font-size: 1.1rem; color: var(--text-muted); padding-left: 5px;">Tasks</h3>
+                <input type="text" id="new-task-input" placeholder="Type here..." style="width: 100%;">
+
+                <div style="display: flex; gap: 8px; align-items: center; min-height: 44px;">
+                    <div style="display: flex; gap: 2px; background: rgba(0,0,0,0.03); padding: 3px 4px; border-radius: var(--radius-pill); flex-shrink: 0;">
+                        <button type="button" id="duration-toggle-today" class="active" style="width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--card-teal); background: rgba(175,221,215,0.2); font-size: 1rem; line-height: 1; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s;" title="Bugün (24 saat)">⏱</button>
+                        <button type="button" id="duration-toggle-forever" style="width: 34px; height: 34px; border-radius: 50%; border: 2px solid transparent; background: transparent; color: var(--text-muted); font-size: 1rem; line-height: 1; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s;" title="Kalıcı">∞</button>
+                    </div>
+                    <button type="button" id="add-task-btn" style="flex:1; min-height: 44px; background: var(--card-teal); color: #000; border: none; border-radius: var(--radius-pill); font-weight: 600; font-size: 0.95rem; cursor: pointer;">+ Task</button>
                 </div>
             </section>
 
-            <section class="tasks-list-container">
-                <h3 style="margin-bottom: 10px; font-size: 1.1rem; color: var(--text-muted); padding-left: 5px;">Daily Habits</h3>
-                <div id="habits-list" style="display: flex; flex-direction: column; gap: 12px;"></div>
-
-                <h3 style="margin-top: 24px; margin-bottom: 10px; font-size: 1.1rem; color: var(--text-muted); padding-left: 5px;">Tasks</h3>
+            <section class="tasks-list-container" style="margin-top: 8px;">
                 <div id="today-tasks-list" style="display: flex; flex-direction: column; gap: 12px;"></div>
             </section>
         </main>
@@ -331,8 +429,8 @@
             </div>
         </div>
 
-        <!-- AUTHENTICATION MODAL -->
-        <div id="auth-modal-overlay" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.85); z-index: 10000; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(5px);">
+        <!-- AUTHENTICATION MODAL (visibility toggled in JS; starts hidden to avoid blocking before init) -->
+        <div id="auth-modal-overlay" class="hidden-view" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.85); z-index: 10000; align-items: center; justify-content: center; backdrop-filter: blur(5px);">
             <div class="event-modal" style="text-align: center;">
                 <h2 style="font-family: var(--font-heading); margin-bottom: 8px;">Welcome</h2>
                 <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 24px;">Kullanici adi ve PIN ile giris yap. Oturum acik kalir.</p>

@@ -57,12 +57,13 @@ window.StatsChart = (() => {
         chartRoot = window.ReactDOM.createRoot(containerEl);
       }
 
-      const chartEl = window.React.createElement(
+        const chartKey = series.map((s) => `${s.water}:${s.coffee}:${s.mood}`).join('|');
+        const chartEl = window.React.createElement(
         ResponsiveContainer,
         { width: '100%', height: 210 },
         window.React.createElement(
           LineChart,
-          { data: series, margin: { top: 10, right: 8, left: 0, bottom: 8 } },
+          { key: chartKey, data: series, margin: { top: 10, right: 12, left: 0, bottom: 8 } },
           window.React.createElement(CartesianGrid, { strokeDasharray: '2 4', stroke: '#eef2f5', vertical: false }),
           window.React.createElement(XAxis, {
             dataKey: 'day',
@@ -82,8 +83,9 @@ window.StatsChart = (() => {
             orientation: 'right',
             axisLine: false,
             tickLine: false,
-            tick: { fill: '#b2bcc4', fontSize: 10 },
-            width: 20
+            tick: { fill: '#8b6914', fontSize: 10 },
+            width: 36,
+            domain: [0, 12]
           }),
           window.React.createElement(ReferenceLine, {
             yAxisId: 'left',

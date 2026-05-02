@@ -442,7 +442,7 @@ function switchCalendarMode(mode) {
 }
 
 function saveCalEvents() {
-    localStorage.setItem('calEventsDatabase', JSON.stringify(calEventsDatabase));
+    if (typeof persistMirror === 'function') persistMirror('calEventsDatabase', calEventsDatabase);
     syncToCloud();
 }
 

@@ -113,19 +113,57 @@ window.db = {
             if (eventInserts.length > 0) await _supabase.from('calendar_events').insert(eventInserts);
         }
 
+        // Günlük / journal (JSON payload per day)
+        if (payload.journal_data && typeof payload.journal_data === 'object') {
+            const rows = Object.keys(payload.journal_data).map((entryDate) => ({
+                user_id: userId,
+                entry_date: entryDate,
+                payload: payload.journal_data[entryDate]
+            }));
+            if (rows.length > 0) {
+                const { error: je } = await _supabase.from('journal_entries').upsert(rows, {
+                    onConflict: 'user_id,entry_date'
+                });
+                if (je) console.warn('journal_entries sync:', je.message);
+            }
+        }
+
+        // Hava / küçük tercihler (tek satır)
+        if (
+            payload.prefs &&
+            typeof payload.prefs === 'object' &&
+            typeof payload.prefs.weather_lat === 'number' &&
+            typeof payload.prefs.weather_lng === 'number'
+        ) {
+            const { error: pe } = await _supabase.from('user_preferences').upsert(
+                {
+                    user_id: userId,
+                    weather_lat: payload.prefs.weather_lat,
+                    weather_lng: payload.prefs.weather_lng,
+                    weather_city: payload.prefs.weather_city ?? null,
+                    updated_at: new Date().toISOString()
+                },
+                { onConflict: 'user_id' }
+            );
+            if (pe) console.warn('user_preferences sync:', pe.message);
+        }
+
         return true;
     },
     
     // Buluttan verileri çek (reconstruct JSON payload from relational tables)
     fetchData: async function(userId) {
-        const [waterRes, moodRes, coffeeRes, habitRes, taskRes, calRes] = await Promise.all([
-            _supabase.from('water_logs').select('*').eq('user_id', userId),
-            _supabase.from('mood_logs').select('*').eq('user_id', userId),
-            _supabase.from('coffee_logs').select('*').eq('user_id', userId),
-            _supabase.from('habits').select('*').eq('user_id', userId),
-            _supabase.from('tasks').select('*').eq('user_id', userId),
-            _supabase.from('calendar_events').select('*').eq('user_id', userId)
-        ]);
+        const [waterRes, moodRes, coffeeRes, habitRes, taskRes, calRes, journalRes, prefRes] =
+            await Promise.all([
+                _supabase.from('water_logs').select('*').eq('user_id', userId),
+                _supabase.from('mood_logs').select('*').eq('user_id', userId),
+                _supabase.from('coffee_logs').select('*').eq('user_id', userId),
+                _supabase.from('habits').select('*').eq('user_id', userId),
+                _supabase.from('tasks').select('*').eq('user_id', userId),
+                _supabase.from('calendar_events').select('*').eq('user_id', userId),
+                _supabase.from('journal_entries').select('*').eq('user_id', userId),
+                _supabase.from('user_preferences').select('*').eq('user_id', userId).maybeSingle()
+            ]);
 
         const data = {
             water_data: {},
@@ -133,7 +171,9 @@ window.db = {
             coffee_data: {},
             habits_data: [],
             tasks_data: {},
-            calendar_data: {}
+            calendar_data: {},
+            journal_data: {},
+            prefs: null
         };
 
         if (waterRes.data) {
@@ -172,7 +212,44 @@ window.db = {
                 });
             });
         }
+        if (!journalRes.error && journalRes.data) {
+            journalRes.data.forEach((row) => {
+                data.journal_data[row.entry_date] = row.payload;
+            });
+        } else if (journalRes.error) {
+            console.warn('journal_entries fetch:', journalRes.error.message);
+        }
+        if (!prefRes.error && prefRes.data) {
+            data.prefs = {
+                weather_lat: prefRes.data.weather_lat,
+                weather_lng: prefRes.data.weather_lng,
+                weather_city: prefRes.data.weather_city
+            };
+        } else if (prefRes.error) {
+            console.warn('user_preferences fetch:', prefRes.error.message);
+        }
 
         return data;
     }
 };
+
+/*
+ * Supabase SQL (Dashboard → SQL):
+ *
+ * create table if not exists journal_entries (
+ *   user_id uuid not null references auth.users on delete cascade,
+ *   entry_date text not null,
+ *   payload jsonb not null default '{}',
+ *   updated_at timestamptz default now(),
+ *   primary key (user_id, entry_date)
+ * );
+ * alter publication supabase_realtime add table journal_entries; -- opsiyonel
+ *
+ * create table if not exists user_preferences (
+ *   user_id uuid primary key references auth.users on delete cascade,
+ *   weather_lat double precision,
+ *   weather_lng double precision,
+ *   weather_city text,
+ *   updated_at timestamptz default now()
+ * );
+ */
