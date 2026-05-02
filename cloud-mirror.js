@@ -50,13 +50,25 @@ function mergeMirrorValueForKey(base, existing, incoming) {
     if (existing == null) return incoming;
     if (incoming == null) return existing;
     if (base === 'habitsDatabase') {
-        const a = Array.isArray(existing) ? existing : [];
-        const b = Array.isArray(incoming) ? incoming : [];
-        const map = new Map();
-        [...a, ...b].forEach((h) => {
-            if (h && h.name) map.set(h.name, { ...h });
-        });
-        return Array.from(map.values());
+        const ex = Array.isArray(existing) ? existing : [];
+        const inc = Array.isArray(incoming) ? incoming : [];
+        const byName = new Map();
+        for (const h of inc) {
+            if (h && h.name) {
+                byName.set(h.name, {
+                    ...h,
+                    completedDates: { ...(h.completedDates || {}) }
+                });
+            }
+        }
+        for (const h of ex) {
+            if (!h || !h.name) continue;
+            if (byName.has(h.name)) {
+                const cur = byName.get(h.name);
+                cur.completedDates = { ...(cur.completedDates || {}), ...(h.completedDates || {}) };
+            }
+        }
+        return Array.from(byName.values());
     }
     if (
         base === 'tasksDatabase' ||

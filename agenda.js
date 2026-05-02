@@ -72,8 +72,14 @@ function renderTasks() {
         deleteBtn.style.cursor = 'pointer';
         deleteBtn.style.opacity = '0.5';
         deleteBtn.addEventListener('click', () => {
-            habitsDatabase.splice(index, 1);
+            let idx = index;
+            if (habit.id != null) {
+                const found = habitsDatabase.findIndex((x) => x && String(x.id) === String(habit.id));
+                if (found >= 0) idx = found;
+            }
+            habitsDatabase.splice(idx, 1);
             saveHabits();
+            if (typeof syncToCloudNow === 'function') syncToCloudNow();
             renderTasks();
         });
         

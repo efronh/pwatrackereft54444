@@ -109,14 +109,17 @@ window.db = {
             }
         }
 
-        if (payload.habits_data) {
-            const habitUpserts = payload.habits_data.map(habit => ({
-                user_id: userId,
-                title: habit.name,
-                completed_dates: habit.completedDates || {}
-            }));
-            if (habitUpserts.length > 0) {
-                await _supabase.from('habits').upsert(habitUpserts, { onConflict: 'user_id,title' });
+        if (payload.habits_data != null && Array.isArray(payload.habits_data)) {
+            const { error: hDelErr } = await _supabase.from('habits').delete().eq('user_id', userId);
+            if (hDelErr) console.warn('habits delete:', hDelErr.message);
+            if (payload.habits_data.length > 0) {
+                const habitRows = payload.habits_data.map((habit) => ({
+                    user_id: userId,
+                    title: habit.name,
+                    completed_dates: habit.completedDates || {}
+                }));
+                const { error: hInsErr } = await _supabase.from('habits').insert(habitRows);
+                if (hInsErr) console.warn('habits insert:', hInsErr.message);
             }
         }
 
