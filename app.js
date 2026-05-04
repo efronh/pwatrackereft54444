@@ -835,12 +835,28 @@ globalEventSave.addEventListener('click', () => {
     renderDayView(selectedYearVal, selectedMonthVal, selectedDayVal);
 });
 
-// Register Service Worker
+// Service Worker: yeni sürümde otomatik tek yenileme (kullanicidan F5 istenmez)
 if ('serviceWorker' in navigator) {
+    let swAutoReloading = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (swAutoReloading) return;
+        swAutoReloading = true;
+        window.location.reload();
+    });
+
     window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js')
-            .then(reg => console.log('SW registered!'))
-            .catch(err => console.log('SW setup failed', err));
+        navigator.serviceWorker
+            .register('./sw.js')
+            .then((reg) => {
+                setTimeout(() => reg.update(), 8000);
+                document.addEventListener('visibilitychange', () => {
+                    if (document.visibilityState === 'visible') {
+                        reg.update();
+                    }
+                });
+                setInterval(() => reg.update(), 4 * 60 * 60 * 1000);
+            })
+            .catch((err) => console.log('SW setup failed', err));
     });
 }
 

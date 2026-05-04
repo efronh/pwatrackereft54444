@@ -1,10 +1,10 @@
-const CACHE_NAME = 'tracker-pwa-v43';
+const CACHE_NAME = 'tracker-pwa-v44';
 
 const APP_SHELL = [
   './',
   './index.html',
   './style.css?v=18',
-  './app.js?v=1018',
+  './app.js?v=1019',
   './db.js?v=100',
   './manifest.json?v=5',
   './app-icon.png?v=5',
@@ -35,6 +35,16 @@ self.addEventListener('fetch', (event) => {
   if (request.method !== 'GET') return;
 
   const origin = self.location.origin;
+
+  try {
+    const u = new URL(request.url);
+    if (u.origin === origin && u.pathname.endsWith('/version.json')) {
+      event.respondWith(fetch(request, { cache: 'no-store' }));
+      return;
+    }
+  } catch (_) {
+    /* ignore */
+  }
 
   if (request.mode === 'navigate') {
     event.respondWith(
