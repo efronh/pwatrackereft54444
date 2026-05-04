@@ -1,4 +1,48 @@
+function habitTombstoneStorageKey() {
+    const uid = typeof window !== 'undefined' ? window.__trackerMirrorUserId : null;
+    return uid ? `habitTombstones__u_${uid}` : 'habitTombstones__pending';
+}
+
+function readHabitTombstones() {
+    try {
+        const raw = localStorage.getItem(habitTombstoneStorageKey());
+        const arr = raw ? JSON.parse(raw) : [];
+        return new Set((Array.isArray(arr) ? arr : []).map((s) => String(s || '').trim().toLowerCase()));
+    } catch {
+        return new Set();
+    }
+}
+
+/** Silinen aliskanlik adi; bulut henuz guncellenmemisse restore ile geri gelmesin. */
+function addHabitTombstone(name) {
+    const k = String(name || '').trim().toLowerCase();
+    if (!k) return;
+    const set = readHabitTombstones();
+    set.add(k);
+    try {
+        localStorage.setItem(habitTombstoneStorageKey(), JSON.stringify([...set].slice(-150)));
+    } catch (_) {
+        /* ignore */
+    }
+}
+
+function removeHabitTombstone(name) {
+    const k = String(name || '').trim().toLowerCase();
+    if (!k) return;
+    const set = readHabitTombstones();
+    if (!set.delete(k)) return;
+    try {
+        localStorage.setItem(habitTombstoneStorageKey(), JSON.stringify([...set]));
+    } catch (_) {
+        /* ignore */
+    }
+}
+
+window.addHabitTombstone = addHabitTombstone;
+window.removeHabitTombstone = removeHabitTombstone;
+
 function mergeHabitsLists(localArr, cloudArr) {
+    const tomb = readHabitTombstones();
     const byName = new Map();
     for (const h of localArr || []) {
         if (!h || !h.name) continue;
@@ -10,7 +54,9 @@ function mergeHabitsLists(localArr, cloudArr) {
     for (const h of cloudArr || []) {
         if (!h || !h.name) continue;
         const ex = byName.get(h.name);
+        const nk = String(h.name).trim().toLowerCase();
         if (!ex) {
+            if (tomb.has(nk)) continue;
             byName.set(h.name, {
                 id: h.id || Date.now() + Math.random(),
                 name: h.name,

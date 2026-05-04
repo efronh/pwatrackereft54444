@@ -78,6 +78,9 @@ function renderTasks() {
                 if (found >= 0) idx = found;
             }
             habitsDatabase.splice(idx, 1);
+            if (typeof window.addHabitTombstone === 'function') {
+                window.addHabitTombstone(habit.name);
+            }
             saveHabits();
             if (typeof syncToCloudNow === 'function') syncToCloudNow();
             renderTasks();

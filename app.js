@@ -410,6 +410,7 @@ let tasksDatabase = {};
 function saveHabits() {
     persistMirror('habitsDatabase', habitsDatabase);
     syncToCloud();
+    if (typeof syncToCloudNow === 'function') syncToCloudNow();
 }
 function saveTasks() {
     if (typeof normalizeTasksDatabase === 'function') {
@@ -424,6 +425,9 @@ if(addHabitBtn) {
     addHabitBtn.addEventListener('click', () => {
         const val = taskInput.value.trim();
         if(val) {
+            if (typeof window.removeHabitTombstone === 'function') {
+                window.removeHabitTombstone(val);
+            }
             habitsDatabase.push({ id: Date.now(), name: val, completedDates: {} });
             taskInput.value = '';
             saveHabits();
@@ -729,6 +733,9 @@ function renderWeekView() {
             const legacyList = JSON.parse(legacyRaw);
             if (Array.isArray(legacyList) && legacyList.length > 0) {
                 legacyList.forEach((t) => {
+                    if (typeof window.removeHabitTombstone === 'function') {
+                        window.removeHabitTombstone(t.name);
+                    }
                     habitsDatabase.push({
                         id: Date.now() + Math.random(),
                         name: t.name,
