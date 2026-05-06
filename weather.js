@@ -22,18 +22,32 @@ let currentLng = DEFAULT_IST_LNG;
 
 function loadCityCoords() {
     const p = window.trackerWeatherPrefs;
-    if (p && typeof p.lat === 'number' && typeof p.lng === 'number') {
-        currentLat = p.lat;
-        currentLng = p.lng;
+    const pLat = Number(p && p.lat);
+    const pLng = Number(p && p.lng);
+    if (p && Number.isFinite(pLat) && Number.isFinite(pLng)) {
+        currentLat = pLat;
+        currentLng = pLng;
+        window.trackerWeatherPrefs = {
+            lat: pLat,
+            lng: pLng,
+            city: String(p.city || '').trim()
+        };
         return;
     }
 
     if (typeof readParsedMirror === 'function') {
         const wp = readParsedMirror('weatherPrefs');
-        if (wp && typeof wp.lat === 'number' && typeof wp.lng === 'number') {
+        const wpLat = Number(wp && wp.lat);
+        const wpLng = Number(wp && wp.lng);
+        if (wp && Number.isFinite(wpLat) && Number.isFinite(wpLng)) {
             window.trackerWeatherPrefs = wp;
-            currentLat = wp.lat;
-            currentLng = wp.lng;
+            currentLat = wpLat;
+            currentLng = wpLng;
+            window.trackerWeatherPrefs = {
+                lat: wpLat,
+                lng: wpLng,
+                city: String(wp.city || '').trim()
+            };
             return;
         }
     }

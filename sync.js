@@ -162,15 +162,11 @@ function mergeWeatherPrefsFromCloud(cloudPrefs) {
         return;
     }
 
-    const clat = cloudPrefs.weather_lat;
-    const clng = cloudPrefs.weather_lng;
+    const clat = Number(cloudPrefs.weather_lat);
+    const clng = Number(cloudPrefs.weather_lng);
     const ccity = (cloudPrefs.weather_city && String(cloudPrefs.weather_city).trim()) || '';
 
-    const cloudOk =
-        typeof clat === 'number' &&
-        typeof clng === 'number' &&
-        Number.isFinite(clat) &&
-        Number.isFinite(clng);
+    const cloudOk = Number.isFinite(clat) && Number.isFinite(clng);
 
     const localHasCity = local && local.city && String(local.city).trim();
     const localCustomCoords =
@@ -275,11 +271,11 @@ function mergeTasksByDate(localObj, cloudObj) {
 function buildSyncPayload() {
     const prefs =
         window.trackerWeatherPrefs &&
-        typeof window.trackerWeatherPrefs.lat === 'number' &&
-        typeof window.trackerWeatherPrefs.lng === 'number'
+        Number.isFinite(Number(window.trackerWeatherPrefs.lat)) &&
+        Number.isFinite(Number(window.trackerWeatherPrefs.lng))
             ? {
-                  weather_lat: window.trackerWeatherPrefs.lat,
-                  weather_lng: window.trackerWeatherPrefs.lng,
+                  weather_lat: Number(window.trackerWeatherPrefs.lat),
+                  weather_lng: Number(window.trackerWeatherPrefs.lng),
                   weather_city: window.trackerWeatherPrefs.city || null
               }
             : null;

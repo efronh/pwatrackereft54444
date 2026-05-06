@@ -531,8 +531,14 @@ function hydrateFromLocalMirrors() {
     const jd = readLocalMirror('journalDatabase');
     if (jd && typeof journalApplyCloudData === 'function') journalApplyCloudData(jd);
     const wp = readLocalMirror('weatherPrefs');
-    if (wp && typeof wp.lat === 'number' && typeof wp.lng === 'number') {
-        window.trackerWeatherPrefs = wp;
+    const wpLat = Number(wp && wp.lat);
+    const wpLng = Number(wp && wp.lng);
+    if (wp && Number.isFinite(wpLat) && Number.isFinite(wpLng)) {
+        window.trackerWeatherPrefs = {
+            lat: wpLat,
+            lng: wpLng,
+            city: String(wp.city || '').trim()
+        };
     }
 }
 

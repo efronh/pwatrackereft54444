@@ -1,10 +1,10 @@
-const CACHE_NAME = 'tracker-pwa-v44';
+const CACHE_NAME = 'tracker-pwa-v45';
 
 const APP_SHELL = [
   './',
   './index.html',
   './style.css?v=18',
-  './app.js?v=1019',
+  './app.js?v=1020',
   './db.js?v=100',
   './manifest.json?v=5',
   './app-icon.png?v=5',
